@@ -1,0 +1,2603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doctor Dashboard | EMR System</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 170px;
+      height: 100vh;
+      background: linear-gradient(135deg, #1a365d 0%, #2d5a8c 100%);
+      color: white;
+      padding: 1.5rem 0;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .sidebar-header {
+      padding: 0 1.5rem 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 1.5rem;
+    }
+
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0 1rem;
+    }
+
+    .sidebar-nav-item {
+      padding: 0.75rem 1rem;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .sidebar-nav-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    .sidebar-nav-item.active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-left: 4px solid #ffd700;
+    }
+
+    /* Main Wrapper */
+    .main-wrapper {
+      margin-left: 170px;
+      width: calc(100% - 170px);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .dashboard-header {
+      background: linear-gradient(135deg, #1a365d 0%, #2d5a8c 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 0 0 1rem 1rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .dashboard-header .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .dashboard-header .header-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .dashboard-header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .dashboard-header p {
+      margin: 0.25rem 0 0 0;
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+
+    .dashboard-header .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .search-box {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      width: 250px;
+    }
+
+    #logoutBtn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    #logoutBtn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .icon-btn {
+      position: relative;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s ease;
+    }
+
+    .icon-btn:hover,
+    .icon-btn.active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .icon-btn .badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ff3b30;
+      color: white;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      min-width: 18px;
+      padding: 0.15rem 0.35rem;
+      line-height: 1;
+    }
+
+    .search-box::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Tab Navigation */
+    .tab-nav {
+      display: flex;
+      gap: 1rem;
+      padding: 1.5rem 2rem;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 0.75rem 1.5rem;
+      background: white;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: #0066cc;
+      border-bottom-color: #0066cc;
+    }
+
+    .tab-btn.active {
+      color: #0066cc;
+      border-bottom-color: #0066cc;
+    }
+
+    /* Section visibility */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    /* Main Content Layout */
+    .doc-layout {
+      display: flex;
+      flex: 1;
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    .doc-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .doc-sidebar {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Card Styles */
+    .card {
+      background: white;
+      padding: 1.75rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2,
+    .card h3 {
+      margin: 0 0 1.5rem 0;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1a202c;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .analytics-card {
+      max-width: 340px;
+      padding: 1.75rem;
+    }
+
+    .analytics-card p {
+      color: #555;
+      line-height: 1.6;
+      margin: 0 0 1.5rem;
+    }
+
+    .report-card {
+      background: white;
+      border: 1px solid #e1e8f0;
+      border-radius: 8px;
+      padding: 1.75rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .report-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .report-head h3 {
+      margin: 0 0 0.4rem;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .metric-box {
+      border: 1px solid #dbe4ef;
+      border-left: 4px solid #0066cc;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #f8fbff;
+    }
+
+    .metric-box span {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #34495e;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .metric-box strong {
+      font-size: 1.7rem;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    .report-table th,
+    .report-table td {
+      border-bottom: 1px solid #dbe4ef;
+      padding: 0.8rem;
+      text-align: left;
+    }
+
+    .report-table th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      color: #34495e;
+      background: #f7f9fc;
+    }
+
+    .inline-schedule-form,
+    .schedule-grid-form {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .inline-schedule-form input,
+    .schedule-grid-form input,
+    .schedule-grid-form textarea {
+      padding: 0.55rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    .consultation-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .data-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border-left: 5px solid #0066cc;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      color: #1a202c;
+    }
+
+    .data-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .data-card.selected {
+      background: #e3f2fd;
+      border-left-color: #0066cc;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f0f0f0;
+      align-items: center;
+    }
+
+    .data-row:last-child {
+      border-bottom: none;
+    }
+
+    .data-label {
+      font-weight: 700;
+      color: #666;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .data-value {
+      color: #1a202c;
+      font-weight: 500;
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-block;
+      padding: 0.35rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #b8860b;
+    }
+
+    .status-scheduled {
+      background: #d4edff;
+      color: #0066cc;
+    }
+
+    .status-completed {
+      background: #d4edda;
+      color: #1e7e34;
+    }
+
+    .status-denied {
+      background: #f8d7da;
+      color: #c92a2a;
+    }
+
+    .status-cancelled {
+      background: #f1f3f5;
+      color: #495057;
+    }
+
+    .status-no-show {
+      background: #ffe3e3;
+      color: #a61e4d;
+    }
+
+    .status-marked-no-show {
+      background: #ffe3e3;
+      color: #a61e4d;
+    }
+
+    .status-approved {
+      background: #d4edda;
+      color: #1e7e34;
+    }
+
+    .status-under-review {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+
+    /* Schedule Card */
+    .schedule-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .schedule-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #0066cc;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .schedule-time {
+      flex: 1;
+    }
+
+    .schedule-name {
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0;
+    }
+
+    .schedule-hour {
+      font-size: 0.9rem;
+      color: #0066cc;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    /* Alert Item */
+    .alert-item {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: #fff8f0;
+      border-left: 4px solid #ff6b35;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .alert-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .alert-content p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #1a202c;
+    }
+
+    .alert-time {
+      font-size: 0.8rem;
+      color: #999;
+    }
+
+    .secondary-action {
+      background: #1f2937 !important;
+      color: #ffffff !important;
+      border: 1px solid #111827 !important;
+      box-shadow: 0 4px 12px rgba(31, 41, 55, 0.2) !important;
+    }
+
+    .secondary-action:hover {
+      background: #111827 !important;
+      color: #ffffff !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .doc-layout {
+        gap: 1.5rem;
+        padding: 1.5rem;
+      }
+
+      .doc-sidebar {
+        width: 280px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .doc-layout {
+        flex-direction: column;
+      }
+
+      .doc-sidebar {
+        width: 100%;
+      }
+
+      .two-col,
+      .report-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inline-schedule-form,
+      .schedule-grid-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .search-box {
+        width: 200px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 150px;
+      }
+
+      .main-wrapper {
+        margin-left: 150px;
+        width: calc(100% - 150px);
+      }
+
+      .dashboard-header {
+        padding: 1rem;
+      }
+
+      .tab-nav {
+        padding: 1rem;
+        gap: 0.5rem;
+      }
+
+      .tab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+      }
+
+      .doc-layout {
+        padding: 1rem;
+      }
+
+      .search-box {
+        width: 150px;
+        padding: 0.4rem 0.8rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .sidebar {
+        width: 130px;
+      }
+
+      .main-wrapper {
+        margin-left: 130px;
+        width: calc(100% - 130px);
+      }
+
+      .sidebar-nav-item {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+      }
+
+      .doc-layout {
+        padding: 0.75rem;
+        gap: 1rem;
+      }
+
+      .card {
+        padding: 1rem;
+      }
+
+      .search-box {
+        display: none;
+      }
+
+      .data-row {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+      }
+
+      .inline-schedule-form,
+      .schedule-grid-form {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Scrollbar */
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    @media (max-width: 768px) {
+      body {
+        display: block;
+        overflow-x: hidden;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        height: auto;
+        padding: 0.85rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        z-index: 300;
+      }
+
+      .sidebar-header {
+        padding: 0 0 0.65rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .sidebar-nav {
+        flex-direction: row;
+        gap: 0.5rem;
+        padding: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .sidebar-nav-item {
+        flex: 0 0 auto;
+        min-height: 42px;
+        white-space: nowrap;
+        font-size: 0.82rem;
+      }
+
+      .sidebar-nav-item.active {
+        border-left: 0;
+        border-bottom: 4px solid #ffd700;
+      }
+
+      .main-wrapper {
+        margin-left: 0;
+        width: 100%;
+        min-width: 0;
+      }
+
+      .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0 0 0.75rem 0.75rem;
+      }
+
+      .dashboard-header .header-left {
+        align-items: flex-start;
+      }
+
+      .dashboard-header h1 {
+        font-size: 1.35rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .dashboard-header .header-actions {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+
+      .search-box {
+        order: 3;
+        width: 100%;
+        display: block;
+      }
+
+      .tab-nav {
+        padding: 0.75rem;
+        gap: 0.5rem;
+      }
+
+      .doc-layout {
+        padding: 0.75rem;
+        gap: 1rem;
+      }
+
+      .doc-sidebar,
+      .doc-main,
+      .analytics-card {
+        width: 100%;
+        max-width: none;
+      }
+
+      .card,
+      .data-card,
+      .report-card {
+        padding: 1rem;
+      }
+
+      .report-head,
+      .schedule-item {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .data-row,
+      .report-grid,
+      .two-col,
+      .inline-schedule-form,
+      .schedule-grid-form {
+        grid-template-columns: 1fr;
+      }
+
+      .report-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      .consultation-actions {
+        flex-direction: column;
+      }
+
+      .consultation-actions button,
+      button.primary {
+        width: 100%;
+        min-height: 44px;
+      }
+    }
+  </style>
+  <script src="api-config.js"></script>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>📋 Doctor</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-nav-item active" data-target="consultations" data-filter="pending">Dashboard</button>
+      <button class="sidebar-nav-item" data-target="availability">Availability</button>
+      <button class="sidebar-nav-item" data-target="schedule-management">Set Schedule</button>
+      <button class="sidebar-nav-item" data-target="patient-records">Patient Records</button>
+      <button class="sidebar-nav-item" data-target="reports">Reports</button>
+      <button class="sidebar-nav-item" data-target="notifications">Notifications</button>
+      <button class="sidebar-nav-item" data-target="profile">Profile</button>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <div class="header-left">
+        <div class="header-avatar">👩‍⚕️</div>
+        <div>
+          <h1>🔐 Doctor Dashboard</h1>
+          <p>Consultation and EMR Management</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <input type="text" class="search-box" id="searchPatient" placeholder="Search patient..." />
+        <button type="button" id="headerNotificationsBtn" class="icon-btn" title="Notifications" aria-label="Notifications">
+          🔔
+          <span id="doctorNotifBadge" class="badge" style="display:none;">0</span>
+        </button>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <section id="consultations" class="section active">
+      <!-- Tab Navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-filter="pending">
+          <span style="color: #ff6b35;">●</span> Pending Requests
+        </button>
+        <button class="tab-btn" data-filter="scheduled">
+          <span style="color: #0066cc;">■</span> Today's Appointments
+        </button>
+        <button class="tab-btn" data-filter="completed">
+          <span style="color: #2ecc71;">✓</span> Completed
+        </button>
+        <button class="tab-btn" data-filter="marked-no-show">
+          <span style="color: #a61e4d;">!</span> No Show
+        </button>
+        <button class="tab-btn" data-filter="available">
+          <span style="color: #2ecc71;">📅</span> Available Slots
+        </button>
+      </div>
+
+      <!-- Main Content Layout -->
+      <div class="doc-layout">
+        <!-- Main Content Area -->
+        <div class="doc-main">
+          <div class="card">
+            <h2>Patient Consultation Requests</h2>
+            <div class="data-card" style="border-left-color:#0066cc; margin-bottom:1rem;">
+              <div class="data-row">
+                <div class="data-label">Today's Consultation Requests</div>
+                <div class="data-value"><strong id="todayConsultationCount">0</strong> / 8</div>
+              </div>
+              <div class="data-row">
+                <div class="data-label">Status</div>
+                <div class="data-value" id="todayConsultationLimitStatus">Accepting requests today.</div>
+              </div>
+            </div>
+            <p id="consultationsDebug" style="color: #666; font-size: 0.85rem; margin: 0 0 0.75rem 0;">Loading consultations...</p>
+            <div id="consultationsList" class="card-list"></div>
+            <div id="availabilityList" class="card-list" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="doc-sidebar">
+          <!-- Sidebar content removed (Availability + Access Alerts) -->
+        </div>
+      </div>
+
+      <!-- Consultation Detail View -->
+      <div id="consultationDetail" class="card" style="display: none; margin-top: 2rem;">
+        <h2>Consultation Details</h2>
+        <div class="two-col">
+          <div id="consultationInfo"></div>
+          <div id="patientEMR"></div>
+        </div>
+        <div style="margin-top: 1.5rem;">
+          <h3>Manage Consultation</h3>
+          <form id="updateConsultationForm" class="form">
+            <div class="form-row">
+              <div class="field">
+                <label for="updateStatus">Status</label>
+                <select id="updateStatus" name="status">
+                  <option value="pending">Pending</option>
+                  <option value="under-review">Under Review</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                  <option value="marked-no-show">Marked No-show</option>
+                  <option value="denied">Denied</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="consultationDate">Consultation Date</label>
+                <input type="date" id="consultationDate" name="consultationDate" />
+              </div>
+              <div class="field">
+                <label for="consultationTimeStart">Consultation Time - Start</label>
+                <input type="time" id="consultationTimeStart" name="consultationTimeStart" />
+              </div>
+              <div class="field">
+                <label for="consultationTimeEnd">Consultation Time - End</label>
+                <input type="time" id="consultationTimeEnd" name="consultationTimeEnd" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="doctorNotes">Doctor Notes & Recommendations</label>
+              <textarea id="doctorNotes" name="notes" rows="4" placeholder="Add notes, remarks, recommendations, and follow-up instructions..."></textarea>
+            </div>
+            <div class="field">
+              <label for="diagnosticResult">Consultation / Diagnostic Result</label>
+              <textarea id="diagnosticResult" name="diagnosticResult" rows="4" placeholder="Type findings, diagnosis, lab interpretation, and final consultation result..."></textarea>
+            </div>
+            <div class="field">
+              <label for="prescription">Prescription</label>
+              <textarea id="prescription" name="prescription" rows="4" placeholder="Type medicine, dosage, frequency, duration, and instructions..."></textarea>
+            </div>
+            <div class="consultation-actions">
+              <button type="submit" class="primary">Update Consultation</button>
+            </div>
+            <p id="updateHint"></p>
+          </form>
+        </div>
+        <button id="backButton" class="primary secondary-action" style="margin-top: 1rem;">Back to List</button>
+      </div>
+    </section>
+
+    <!-- Set Availability Section -->
+    <section id="availability" class="section">
+      <div class="card">
+        <h2>Set Your Availability</h2>
+        <form id="availabilityForm" class="form">
+          <div class="form-row">
+            <div class="field">
+              <label for="availabilityMonth">Availability Month</label>
+              <input type="month" id="availabilityMonth" name="availabilityMonth" />
+            </div>
+            <div class="field">
+              <label for="availableDate">Available Date</label>
+              <input type="date" id="availableDate" name="availableDate" required />
+            </div>
+            <div class="field">
+              <label for="repeatMode">Repeat</label>
+              <select id="repeatMode" name="repeatMode">
+                <option value="none">No repeat</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="repeatCount">How Many Dates</label>
+              <input type="number" id="repeatCount" name="repeatCount" min="1" max="12" value="1" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Available Time Slots</label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="08:00" /> 8:00 AM - 9:00 AM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="09:00" /> 9:00 AM - 10:00 AM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="10:00" /> 10:00 AM - 11:00 AM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="11:00" /> 11:00 AM - 12:00 NN
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="13:00" /> 1:00 PM - 2:00 PM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="14:00" /> 2:00 PM - 3:00 PM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="15:00" /> 3:00 PM - 4:00 PM
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" class="time-check" value="16:00" /> 4:00 PM - 5:00 PM
+              </label>
+            </div>
+            <div class="field" style="margin-top: 0.75rem;">
+              <label for="customTimeSlots">Additional Slot Options</label>
+              <input type="text" id="customTimeSlots" name="customTimeSlots" placeholder="Example: 17:00, 18:30" />
+              <p class="hint" style="text-align:left;">Use 24-hour HH:MM format. Multiple slots can be comma-separated.</p>
+            </div>
+          </div>
+          <button type="submit" class="primary" style="margin-top: 1rem;">Set Availability</button>
+          <p id="availabilityHint"></p>
+        </form>
+
+        <h3 style="margin-top: 2rem;">Your Current Availability</h3>
+        <p id="availabilityMonthHint" style="color: var(--muted); margin: 0 0 1rem 0; font-size: 0.9rem;"></p>
+        <div id="currentAvailability" class="card-list"></div>
+      </div>
+    </section>
+
+    <!-- Notifications Section -->
+    <section id="notifications" class="section">
+      <div class="card">
+        <h2>Notifications</h2>
+        <div id="notificationsList" class="card-list"></div>
+      </div>
+    </section>
+
+    <!-- Schedule Management Section -->
+    <section id="schedule-management" class="section">
+      <div class="card">
+        <h2>Set Patient Consultation Schedule</h2>
+        <p id="scheduleManagementDebug" style="color:#666; font-size:0.9rem; margin:0 0 0.75rem 0;">Loading consultations...</p>
+        <div id="scheduleManagementList" class="card-list"></div>
+      </div>
+    </section>
+
+    <!-- Patient Records Section -->
+    <section id="patient-records" class="section">
+      <div class="card">
+        <h2>Patient Records</h2>
+        <p style="color:#666;">Select a patient from the consultation list or scan their QR code to view their record.</p>
+        <div class="data-card" style="margin-bottom: 1rem;">
+          <h3 style="margin-top: 0;">Scan Patient QR</h3>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end;">
+            <div class="field" style="flex: 1; min-width: 220px; margin: 0;">
+              <label for="patientQrInput">QR Code Text</label>
+              <input type="text" id="patientQrInput" placeholder="EMR-Patient:123" />
+            </div>
+            <button type="button" id="openQrPatientBtn" class="primary" style="width: auto;">Open Record</button>
+            <button type="button" id="startQrScanBtn" class="primary secondary-action" style="width: auto;">Use Camera</button>
+            <button type="button" id="stopQrScanBtn" class="primary secondary-action" style="width: auto; display: none;">Stop Camera</button>
+          </div>
+          <video id="qrScanVideo" style="display: none; width: 100%; max-width: 420px; margin-top: 1rem; border-radius: 8px;" muted playsinline></video>
+          <p id="qrScanHint" class="hint"></p>
+        </div>
+        <p id="patientRecordsDebug" style="color:#666; font-size:0.9rem; margin:0 0 0.75rem 0;">Loading patients...</p>
+        <div id="patientRecordsList" class="card-list"></div>
+      </div>
+    </section>
+
+    <!-- Reports Section -->
+    <section id="reports" class="section">
+      <div class="card">
+        <h2>Reports</h2>
+        <div class="data-card analytics-card">
+          <h3>Consultation Analytics</h3>
+          <p>View consultation statistics and trends</p>
+          <button type="button" id="viewAnalyticsBtn" class="primary">View Analytics</button>
+        </div>
+        <div id="analyticsPanel" style="display:none; margin-top:1.5rem;">
+          <h2>Recent Reports</h2>
+          <p id="diagnosticsDebug" style="color:#666; font-size:0.9rem; margin:0 0 0.75rem 0;">Loading diagnostic report...</p>
+          <div id="diagnosticsReport" class="card-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile Section -->
+    <section id="profile" class="section">
+      <div class="card">
+        <h2>Doctor Profile</h2>
+        <form id="doctorProfileForm" class="form">
+          <div class="field">
+            <label for="doctorName">Full Name</label>
+            <input type="text" id="doctorName" name="display_name" required />
+          </div>
+          <div class="field">
+            <label for="doctorEmail">Email (Read-only)</label>
+            <input type="email" id="doctorEmail" readonly />
+          </div>
+          <div class="field">
+            <label for="doctorLicense">License Number</label>
+            <input type="text" id="doctorLicense" name="license_number" required />
+          </div>
+          <div class="field">
+            <label for="totalConsultations">Total Consultations</label>
+            <input type="number" id="totalConsultations" readonly />
+          </div>
+          <button type="submit" class="primary">Update Profile</button>
+          <p id="profileHint"></p>
+        </form>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>EMR Doctor Management System • Patient Care & Records</p>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    const API_BASE_URL = window.PROFELECT_API_BASE_URL;
+    const authUser = JSON.parse(localStorage.getItem('authUser') || 'null');
+
+    if (!authUser || !authUser.id || authUser.role !== 'doctor') {
+      alert('Access denied. Please log in as a doctor.');
+      window.location.href = 'login.html';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const sidebarBtns = document.querySelectorAll('.sidebar-nav-item');
+      const sections = document.querySelectorAll('.section');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const headerNotificationsBtn = document.getElementById('headerNotificationsBtn');
+      const searchInput = document.getElementById('searchPatient');
+      const patientQrInput = document.getElementById('patientQrInput');
+      const openQrPatientBtn = document.getElementById('openQrPatientBtn');
+      const startQrScanBtn = document.getElementById('startQrScanBtn');
+      const stopQrScanBtn = document.getElementById('stopQrScanBtn');
+      const qrScanVideo = document.getElementById('qrScanVideo');
+      const qrScanHint = document.getElementById('qrScanHint');
+
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    let currentFilter = document.querySelector('.tab-btn.active')?.dataset.filter || 'pending';
+    let searchQuery = '';
+    let qrScanStream = null;
+    let qrScanAnimationFrame = null;
+
+    let selectedConsultationId = null;
+    let consultationsData = [];
+    let availabilityData = [];
+    const MAX_DAILY_CONSULTATIONS = 8;
+    const ACTIVE_CONSULTATION_STATUSES = new Set(['pending', 'scheduled', 'under-review']);
+    const TIME_SLOT_LABELS = {
+      '08:00': '8:00 AM - 9:00 AM',
+      '09:00': '9:00 AM - 10:00 AM',
+      '10:00': '10:00 AM - 11:00 AM',
+      '11:00': '11:00 AM - 12:00 NN',
+      '13:00': '1:00 PM - 2:00 PM',
+      '14:00': '2:00 PM - 3:00 PM',
+      '15:00': '3:00 PM - 4:00 PM',
+      '16:00': '4:00 PM - 5:00 PM',
+    };
+
+    function formatTimeSlot(slot) {
+      return TIME_SLOT_LABELS[slot] || slot;
+    }
+
+    function getLocalDateValue(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function isActiveConsultation(c) {
+      return ACTIVE_CONSULTATION_STATUSES.has(String(c.status || '').toLowerCase());
+    }
+
+    function updateDailyConsultationCounter() {
+      const countEl = document.getElementById('todayConsultationCount');
+      const statusEl = document.getElementById('todayConsultationLimitStatus');
+      if (!countEl || !statusEl) return;
+
+      const today = getLocalDateValue();
+      const todaysCount = (consultationsData || []).filter(c => isActiveConsultation(c) && c.consultation_date === today).length;
+      countEl.textContent = todaysCount;
+      statusEl.textContent = todaysCount >= MAX_DAILY_CONSULTATIONS
+        ? 'Daily limit reached. New patient requests for today are blocked.'
+        : `${MAX_DAILY_CONSULTATIONS - todaysCount} request slot${MAX_DAILY_CONSULTATIONS - todaysCount === 1 ? '' : 's'} remaining today.`;
+      statusEl.style.color = todaysCount >= MAX_DAILY_CONSULTATIONS ? 'var(--danger)' : 'var(--success)';
+    }
+
+    function setDoctorNotificationBadge(notifications = []) {
+      const badge = document.getElementById('doctorNotifBadge');
+      if (!badge) return;
+      const unread = notifications.filter(n => !n.read).length;
+      badge.textContent = unread;
+      badge.style.display = unread ? 'inline-flex' : 'none';
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes) return '0 KB';
+      if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function renderPatientRecordFiles(files) {
+      if (!files || files.length === 0) {
+        return '<p style="color: var(--muted);">No uploaded record files yet.</p>';
+      }
+
+      return files.map(file => `
+        <div class="data-card">
+          <div class="data-row">
+            <div class="data-label">File</div>
+            <div class="data-value">${file.file_name}</div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Type / Size</div>
+            <div class="data-value">${file.mime_type} - ${formatFileSize(file.file_size)}</div>
+          </div>
+          ${file.notes ? `<div class="data-row">
+            <div class="data-label">Notes</div>
+            <div class="data-value">${file.notes}</div>
+          </div>` : ''}
+          <div class="data-row">
+            <div class="data-label">Uploaded</div>
+            <div class="data-value">${new Date(file.created_at).toLocaleString()}</div>
+          </div>
+          <button type="button" class="primary" onclick="openPatientRecordFile(${file.id})">View File</button>
+        </div>
+      `).join('');
+    }
+
+    async function loadPatientRecordFiles(patientUserId) {
+      const resp = await fetch(`${API_BASE_URL}/api/patient-record-files?userId=${authUser.id}&patientId=${patientUserId}`);
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message);
+      return data.files || [];
+    }
+
+    async function openPatientRecordFile(fileId) {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/patient-record-files/${fileId}?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        const win = window.open('', '_blank');
+        if (!win) throw new Error('Please allow popups to view the file.');
+        win.document.write(`<iframe src="${data.file.dataUrl}" style="border:0;width:100%;height:100vh;"></iframe>`);
+      } catch (err) {
+        alert('Error opening file: ' + err.message);
+      }
+    }
+
+    window.openPatientRecordFile = openPatientRecordFile;
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.filter === filter));
+      renderConsultationsList();
+    }
+
+    function switchSection(target, filter) {
+      sidebarBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.target === target));
+      sections.forEach(sec => sec.classList.toggle('active', sec.id === target));
+
+      if (target === 'consultations' && filter) {
+        setFilter(filter);
+      }
+
+      if (target === 'reports') {
+        loadDiagnosticsReport();
+      }
+
+      if (target === 'schedule-management') {
+        renderScheduleManagement();
+      }
+    }
+
+    sidebarBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.target;
+        const filter = btn.dataset.filter;
+        switchSection(target, filter);
+      });
+    });
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        setFilter(btn.dataset.filter);
+      });
+    });
+
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+
+      // When the search box is empty, show all patients (no filtering)
+      if (!searchQuery) {
+        switchSection('patient-records');
+        renderPatientList();
+        return;
+      }
+
+      // Otherwise, filter patients based on search
+      const filtered = allPatients.filter(p => {
+        const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
+        return fullName.includes(searchQuery);
+      });
+
+      const container = document.getElementById('patientRecordsList');
+      if (filtered.length === 0) {
+        container.innerHTML = '<p style="color: var(--muted);">No patients found matching "' + searchQuery + '".</p>';
+      } else {
+        container.innerHTML = filtered.map(p => `
+          <div class="data-card" onclick="selectPatientForRecords(${p.user_id})" style="cursor: pointer;">
+            <div class="data-row">
+              <div class="data-label">Name</div>
+              <div class="data-value">${p.first_name} ${p.middle_name || ''} ${p.last_name}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Email</div>
+              <div class="data-value">${p.email}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Mobile</div>
+              <div class="data-value">${p.mobile}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Consultations</div>
+              <div class="data-value">${p.total_consultations || 0}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      switchSection('patient-records');
+    });
+
+    openQrPatientBtn?.addEventListener('click', () => openPatientFromQrText(patientQrInput.value));
+    startQrScanBtn?.addEventListener('click', startQrScanner);
+    stopQrScanBtn?.addEventListener('click', stopQrScanner);
+
+    logoutBtn.addEventListener('click', () => {
+      stopQrScanner();
+      localStorage.removeItem('authUser');
+      window.location.href = 'login.html';
+    });
+
+    headerNotificationsBtn?.addEventListener('click', () => {
+      switchSection('notifications');
+      loadNotifications();
+    });
+
+    // ============ CONSULTATIONS ============
+
+    async function loadConsultations() {
+      try {
+        const url = `${API_BASE_URL}/api/doctor/consultations?userId=${authUser.id}`;
+        const resp = await fetch(url);
+        
+        if (!resp.ok) {
+          throw new Error(`Server responded with ${resp.status}: ${resp.statusText}. API: ${API_BASE_URL}`);
+        }
+        
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load consultations');
+
+        consultationsData = data.consultations || [];
+        updateDailyConsultationCounter();
+        document.getElementById('consultationsDebug').textContent = `Loaded ${consultationsData.length} consultations.`;
+        renderConsultationsList();
+        if (document.getElementById('schedule-management')?.classList.contains('active')) {
+          renderScheduleManagement();
+        }
+      } catch (err) {
+        console.error('loadConsultations error:', err);
+        const listEl = document.getElementById('consultationsList');
+        const debugEl = document.getElementById('consultationsDebug');
+        if (listEl) listEl.innerHTML = `<p style="color: var(--danger);">Error loading consultations: ${err.message}</p>`;
+        if (debugEl) debugEl.innerHTML = `<p style="color: var(--danger); font-size: 0.8rem;">Debug: ${err.message}</p>`;
+      }
+    }
+
+    function renderAvailabilityList() {
+      const container = document.getElementById('availabilityList');
+      if (!availabilityData || availabilityData.length === 0) {
+        container.innerHTML = '<p style="color: var(--muted);">No availability slots set.</p>';
+        return;
+      }
+
+      container.innerHTML = availabilityData.map((a) => {
+        const slots = (a.available_time_slots && typeof a.available_time_slots === 'string')
+          ? JSON.parse(a.available_time_slots)
+          : a.available_time_slots || [];
+
+        return `
+          <div class="data-card">
+            <div class="data-row">
+              <div class="data-label">Date</div>
+              <div class="data-value">${a.available_date}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Time Slots</div>
+              <div class="data-value">${slots.length ? slots.map(formatTimeSlot).join(', ') : 'None'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+
+    function renderConsultationsList() {
+      const listEl = document.getElementById('consultationsList');
+      const availabilityEl = document.getElementById('availabilityList');
+      const detailEl = document.getElementById('consultationDetail');
+
+      // Ensure list view is shown (detail view hides it)
+      detailEl.style.display = 'none';
+
+      if (currentFilter === 'available') {
+        listEl.style.display = 'none';
+        availabilityEl.style.display = '';
+        renderAvailabilityList();
+        return;
+      }
+
+      listEl.style.display = '';
+      availabilityEl.style.display = 'none';
+      const today = getLocalDateValue();
+
+      const searchTerm = searchQuery;
+      const filteredBySearch = searchTerm
+        ? consultationsData.filter(c => {
+            const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+            return fullName.includes(searchTerm);
+          })
+        : consultationsData;
+
+      document.getElementById('consultationsDebug').textContent = `Showing ${filteredBySearch.length} matching consultations (filter: ${currentFilter}${searchTerm ? `, search: "${searchTerm}"` : ''}).`;
+
+      const filtered = filteredBySearch.filter((c) => {
+        // If searching, show all matching results regardless of status
+        if (searchTerm) {
+          return true;
+        }
+        // Otherwise filter by status
+        if (currentFilter === 'scheduled') {
+          return c.status === 'scheduled' && c.consultation_date === today;
+        }
+        return c.status === currentFilter;
+      });
+
+      const html = filtered.length === 0 ?
+        '<p style="color: var(--muted);">No consultations available.</p>' :
+        filtered.map(c => `
+          <div class="data-card" onclick="selectConsultation(${c.id})">
+            <div class="data-row">
+              <div class="data-label">Patient</div>
+              <div class="data-value">${c.first_name} ${c.last_name}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Status</div>
+              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+            </div>
+            ${Number(c.is_late) ? `<div class="data-row">
+              <div class="data-label">Alert</div>
+              <div class="data-value" style="color:#c92a2a;">Pending date has passed</div>
+            </div>` : ''}
+            ${c.consultation_date ? `<div class="data-row">
+              <div class="data-label">Requested Date</div>
+              <div class="data-value">${c.consultation_date}${c.consultation_time ? ` at ${c.consultation_time}` : ''}</div>
+            </div>` : ''}
+            <div class="data-row">
+              <div class="data-label">Concerns</div>
+              <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.concerns.substring(0, 100)}${c.concerns.length > 100 ? '...' : ''}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Submitted</div>
+              <div class="data-value" style="font-size: 0.9rem;">${new Date(c.created_at).toLocaleString()}</div>
+            </div>
+            ${c.status === 'pending' ? `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
+              <button class="primary" style="background:#1e7e34; padding:0.45rem 0.75rem;" onclick="event.stopPropagation(); quickUpdateConsultation(${c.id}, 'scheduled')">Approve</button>
+              <button class="primary" style="background:#c92a2a; padding:0.45rem 0.75rem;" onclick="event.stopPropagation(); quickUpdateConsultation(${c.id}, 'denied')">Reject</button>
+            </div>` : ''}
+            ${canMarkNoShow(c) ? `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
+              <button class="primary" style="background:#a61e4d; padding:0.45rem 0.75rem;" onclick="event.stopPropagation(); quickUpdateConsultation(${c.id}, 'marked-no-show')">Mark No-show</button>
+            </div>` : ''}
+            <form class="inline-schedule-form" onsubmit="event.stopPropagation(); submitDoctorSchedule(event, ${c.id})" style="margin-top:0.75rem;">
+              <input type="date" name="consultationDate" value="${c.consultation_date || ''}" required />
+              <input type="time" name="consultationTime" value="${c.consultation_time || ''}" required />
+              <input type="time" name="consultationTimeEnd" value="${c.consultation_time_end || ''}" />
+              <button class="primary" type="submit" style="padding:0.55rem 0.75rem;">Set Schedule</button>
+            </form>
+          </div>
+        `).join('');
+
+      listEl.innerHTML = html;
+    }
+
+
+    async function selectConsultation(consultationId) {
+      selectedConsultationId = consultationId;
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/consultation/${consultationId}?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+
+        const c = data.consultation;
+        const assessment = c.assessment || {};
+        const recordFiles = await loadPatientRecordFiles(c.patient_id);
+
+        function formatAssessment(assessmentData) {
+          if (!assessmentData || Object.keys(assessmentData).length === 0) {
+            return '<p style="color: var(--muted);">No assessment data available.</p>';
+          }
+
+          const cpAbeIndicator = `
+            <div style="
+              background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f2 100%);
+              border: 2px solid #0088cc;
+              border-radius: 8px;
+              padding: 12px 16px;
+              margin-bottom: 16px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            ">
+              <span style="font-size: 20px;">🔐</span>
+              <div>
+                <strong style="color: #004a99;">CP-ABE Encrypted Assessment</strong>
+                <br/>
+                <small style="color: #0066cc;">You have doctor access to decrypt this patient data</small>
+              </div>
+            </div>
+          `;
+
+          const labels = {
+            symptoms: 'Symptoms',
+            urgent: 'Urgent',
+            healthStatus: 'Health Status',
+            hospitalized: 'Hospitalized',
+            surgery: 'Surgery',
+            highBloodPressure: 'High Blood Pressure',
+            diabetes: 'Diabetes',
+            asthma: 'Asthma / Lung Condition',
+            heartDisease: 'Heart Disease',
+            kidneyDisease: 'Kidney Disease',
+            liverDisease: 'Liver Disease',
+            tuberculosis: 'Tuberculosis',
+            cancer: 'Cancer',
+            mentalHealth: 'Mental Health Condition',
+            otherConditions: 'Other Conditions',
+            medications: 'Currently Taking Medications',
+            maintenanceMedications: 'Maintenance Medications',
+            medicineAllergy: 'Medicine Allergy',
+            foodAllergy: 'Food Allergy',
+            familyHighBloodPressure: 'Family History: High Blood Pressure',
+            familyDiabetes: 'Family History: Diabetes',
+            familyHeartDisease: 'Family History: Heart Disease',
+            familyCancer: 'Family History: Cancer',
+            familyStroke: 'Family History: Stroke',
+            smoke: 'Smoke',
+            alcohol: 'Drink Alcohol',
+            vape: 'Use Vape / E-cigarettes',
+            drugs: 'Use Recreational Drugs',
+            exercise: 'Exercise Regularly',
+            feverCough: 'Recent Fever/Cough/Colds',
+            difficultyBreathing: 'Difficulty Breathing',
+            diarrheaVomiting: 'Diarrhea / Vomiting',
+            exposedIllness: 'Exposed to Contagious Illness',
+            pregnant: 'Pregnant',
+            breastfeeding: 'Breastfeeding',
+          };
+
+          const rows = Object.keys(assessmentData).map((key) => {
+            const label = labels[key] || key;
+            const value = assessmentData[key];
+            return `
+              <div class="data-row">
+                <div class="data-label">${label}</div>
+                <div class="data-value">${value === true ? 'Yes' : value === false ? 'No' : value || '—'}</div>
+              </div>
+            `;
+          });
+
+          return `${cpAbeIndicator}<div style="max-height: 400px; overflow-y: auto;">${rows.join('')}</div>`;
+        }
+
+        document.getElementById('consultationInfo').innerHTML = `
+          <div>
+            <h3 style="margin-top: 0;">Patient Information</h3>
+            <div class="data-row">
+              <div class="data-label">Name</div>
+              <div class="data-value">${c.first_name} ${c.middle_name || ''} ${c.last_name}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Email</div>
+              <div class="data-value">${c.email}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Mobile</div>
+              <div class="data-value">${c.mobile}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">DOB</div>
+              <div class="data-value">${c.date_of_birth}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Age</div>
+              <div class="data-value">${c.age}</div>
+            </div>
+            <h3 style="margin-top: 1.5rem;">Consultation Details</h3>
+            <div class="data-row">
+              <div class="data-label">Concerns</div>
+              <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.concerns}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Status</div>
+              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+            </div>
+            ${c.consultation_date ? `<div class="data-row">
+              <div class="data-label">Scheduled</div>
+              <div class="data-value">${c.consultation_date} at ${c.consultation_time}${c.consultation_time_end ? ` - ${c.consultation_time_end}` : ''}</div>
+            </div>` : ''}
+            ${c.diagnostic_result ? `<div class="data-row">
+              <div class="data-label">Result</div>
+              <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.diagnostic_result}</div>
+            </div>` : ''}
+            ${c.prescription ? `<div class="data-row">
+              <div class="data-label">Prescription</div>
+              <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.prescription}</div>
+            </div>` : ''}
+          </div>
+        `;
+
+        document.getElementById('patientEMR').innerHTML = `
+          <div>
+            <h3 style="margin-top: 0;">Health Assessment Summary</h3>
+            ${formatAssessment(assessment)}
+            <h3 style="margin-top: 2rem;">Uploaded Medical Records</h3>
+            ${renderPatientRecordFiles(recordFiles)}
+          </div>
+        `;
+
+        document.getElementById('updateStatus').value = c.status || 'pending';
+        document.getElementById('consultationDate').value = c.consultation_date || '';
+        document.getElementById('consultationTimeStart').value = c.consultation_time || '';
+        document.getElementById('consultationTimeEnd').value = c.consultation_time_end || '';
+        document.getElementById('doctorNotes').value = c.notes || '';
+        document.getElementById('diagnosticResult').value = c.diagnostic_result || '';
+        document.getElementById('prescription').value = c.prescription || '';
+
+        document.getElementById('consultationsList').style.display = 'none';
+        document.getElementById('consultationDetail').style.display = 'block';
+      } catch (err) {
+        alert('Error loading consultation details: ' + err.message);
+      }
+    }
+
+    window.selectConsultation = selectConsultation;
+
+    function canMarkNoShow(c) {
+      const today = getLocalDateValue();
+      return ['pending', 'scheduled', 'under-review'].includes(c.status)
+        && c.consultation_date
+        && c.consultation_date <= today;
+    }
+
+    async function updateSelectedConsultation(statusOverride) {
+      if (!selectedConsultationId) return;
+
+      const updates = {
+        status: statusOverride || document.getElementById('updateStatus').value,
+        consultationDate: document.getElementById('consultationDate').value,
+        consultationTime: document.getElementById('consultationTimeStart').value,
+        consultationTimeEnd: document.getElementById('consultationTimeEnd').value,
+        notes: document.getElementById('doctorNotes').value,
+        diagnosticResult: document.getElementById('diagnosticResult').value,
+        prescription: document.getElementById('prescription').value,
+      };
+
+      const resp = await fetch(`${API_BASE_URL}/api/doctor/consultation/${selectedConsultationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authUser.id, ...updates }),
+      });
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message);
+    }
+
+    async function quickUpdateConsultation(consultationId, status) {
+      const consultation = consultationsData.find(c => Number(c.id) === Number(consultationId));
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/consultation/${consultationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: authUser.id,
+            status,
+            consultationDate: consultation?.consultation_date || '',
+            consultationTime: consultation?.consultation_time || '',
+            consultationTimeEnd: consultation?.consultation_time_end || '',
+          }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        await loadConsultations();
+        await loadNotifications();
+      } catch (err) {
+        alert('Error updating consultation: ' + err.message);
+      }
+    }
+
+    window.quickUpdateConsultation = quickUpdateConsultation;
+
+    async function submitDoctorSchedule(event, consultationId) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/consultations/${consultationId}/schedule`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: authUser.id,
+            consultationDate: formData.get('consultationDate'),
+            consultationTime: formData.get('consultationTime'),
+            consultationTimeEnd: formData.get('consultationTimeEnd'),
+          }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        await loadConsultations();
+        await loadNotifications();
+      } catch (err) {
+        alert('Error setting schedule: ' + err.message);
+      }
+    }
+
+    window.submitDoctorSchedule = submitDoctorSchedule;
+
+    function renderScheduleManagement() {
+      const debug = document.getElementById('scheduleManagementDebug');
+      const list = document.getElementById('scheduleManagementList');
+      if (!debug || !list) return;
+
+      const active = (consultationsData || []).filter(c => !['completed', 'denied', 'cancelled', 'marked-no-show'].includes(c.status));
+      const today = getLocalDateValue();
+      const todaysCount = active.filter(c => c.consultation_date === today).length;
+      debug.textContent = `Showing ${active.length} active consultations. Today: ${todaysCount} / ${MAX_DAILY_CONSULTATIONS}.`;
+
+      if (!active.length) {
+        list.innerHTML = '<p style="color: var(--muted);">No active consultations available for scheduling.</p>';
+        return;
+      }
+
+      list.innerHTML = active.map(c => `
+        <div class="data-card">
+          <div class="data-row">
+            <div class="data-label">Patient</div>
+            <div class="data-value">${c.first_name} ${c.last_name}</div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Status</div>
+            <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Concern</div>
+            <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.concerns || '-'}</div>
+          </div>
+          <form class="schedule-grid-form" onsubmit="submitDoctorSchedule(event, ${c.id})">
+            <input type="date" name="consultationDate" value="${c.consultation_date || ''}" required />
+            <input type="time" name="consultationTime" value="${c.consultation_time || ''}" required />
+            <input type="time" name="consultationTimeEnd" value="${c.consultation_time_end || ''}" />
+            <button class="primary" type="submit">Set Schedule</button>
+          </form>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      selectedConsultationId = null;
+      document.getElementById('consultationsList').style.display = 'block';
+      document.getElementById('consultationDetail').style.display = 'none';
+      loadConsultations();
+    });
+
+    document.getElementById('updateConsultationForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!selectedConsultationId) return;
+
+      try {
+        await updateSelectedConsultation();
+        document.getElementById('updateHint').textContent = '✓ Consultation updated successfully.';
+        document.getElementById('updateHint').style.color = 'var(--success)';
+        loadConsultations();
+      } catch (err) {
+        document.getElementById('updateHint').textContent = `❌ ${err.message}`;
+        document.getElementById('updateHint').style.color = 'var(--danger)';
+      }
+    });
+
+    // ============ AVAILABILITY ============
+
+    const availabilityMonthInput = document.getElementById('availabilityMonth');
+    const availableDateInput = document.getElementById('availableDate');
+
+    function getCurrentMonthValue() {
+      return getLocalDateValue().slice(0, 7);
+    }
+
+    function getDateInputValue(inputOrValue) {
+      return String(typeof inputOrValue === 'string' ? inputOrValue : inputOrValue?.value || '').slice(0, 10);
+    }
+
+    function getMonthLastDay(monthValue) {
+      const [year, month] = monthValue.split('-').map(Number);
+      return new Date(year, month, 0).getDate();
+    }
+
+    function syncAvailabilityMonth() {
+      const monthValue = availabilityMonthInput.value || getCurrentMonthValue();
+      availabilityMonthInput.value = monthValue;
+      availableDateInput.min = `${monthValue}-01`;
+      availableDateInput.max = `${monthValue}-${String(getMonthLastDay(monthValue)).padStart(2, '0')}`;
+
+      if (!availableDateInput.value || !availableDateInput.value.startsWith(monthValue)) {
+        availableDateInput.value = availableDateInput.min;
+      }
+
+      renderCurrentAvailability();
+    }
+
+    function parseCustomTimeSlots(value) {
+      return String(value || '')
+        .split(',')
+        .map(slot => slot.trim())
+        .filter(Boolean)
+        .filter(slot => /^([01]\d|2[0-3]):[0-5]\d$/.test(slot));
+    }
+
+    function uniqueSortedSlots(slots) {
+      return Array.from(new Set(slots)).sort();
+    }
+
+    function renderCurrentAvailability() {
+      const list = document.getElementById('currentAvailability');
+      const hint = document.getElementById('availabilityMonthHint');
+      const selectedMonth = availabilityMonthInput.value || getCurrentMonthValue();
+      const filteredAvailability = (availabilityData || []).filter((a) => String(a.available_date || '').startsWith(selectedMonth));
+
+      hint.textContent = `Showing availability for ${selectedMonth}.`;
+
+      if (availabilityData.length === 0) {
+        list.innerHTML = '<p style="color: var(--muted);">No availability set yet.</p>';
+        return;
+      }
+
+      if (filteredAvailability.length === 0) {
+        list.innerHTML = '<p style="color: var(--muted);">No availability set for this month.</p>';
+        return;
+      }
+
+      list.innerHTML = filteredAvailability.map(a => {
+        const slots = JSON.parse(a.available_time_slots || '[]');
+        return `
+          <div class="data-card">
+            <form class="schedule-grid-form" onsubmit="updateAvailability(event, ${a.id})">
+              <input type="date" name="availableDate" value="${a.available_date}" required />
+              <input type="text" name="timeSlots" value="${slots.join(', ')}" required title="Comma-separated time slots" />
+              <button class="primary" type="submit">Save</button>
+              <button class="primary" type="button" style="background:#c92a2a;" onclick="deleteAvailability(${a.id})">Delete</button>
+            </form>
+            <div class="data-row" style="margin-top:0.75rem;">
+              <div class="data-label">Slots</div>
+              <div class="time-slots">
+                ${slots.map(t => `<div class="time-slot">${formatTimeSlot(t)}</div>`).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    availabilityMonthInput.addEventListener('change', syncAvailabilityMonth);
+    syncAvailabilityMonth();
+
+    document.getElementById('availabilityForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const availableDate = getDateInputValue(availableDateInput);
+      const repeatMode = document.getElementById('repeatMode').value;
+      const repeatCount = document.getElementById('repeatCount').value;
+      const checkedSlots = Array.from(document.querySelectorAll('.time-check:checked')).map(cb => cb.value);
+      const customSlots = parseCustomTimeSlots(document.getElementById('customTimeSlots').value);
+      const timeSlots = uniqueSortedSlots([...checkedSlots, ...customSlots]);
+
+      if (!availableDate || timeSlots.length === 0) {
+        alert('Please select a date and at least one time slot.');
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/availability`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id, availableDate, timeSlots, repeatMode, repeatCount }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        document.getElementById('availabilityHint').textContent = '✓ Availability set successfully.';
+        document.getElementById('availabilityHint').style.color = 'var(--success)';
+        document.getElementById('availabilityForm').reset();
+        syncAvailabilityMonth();
+        loadMyAvailability();
+      } catch (err) {
+        document.getElementById('availabilityHint').textContent = `❌ ${err.message}`;
+        document.getElementById('availabilityHint').style.color = 'var(--danger)';
+      }
+    });
+
+    async function loadMyAvailability() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/my-availability?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+
+        availabilityData = data.availability || [];
+        renderAvailabilityList();
+        renderCurrentAvailability();
+      } catch (err) {
+        document.getElementById('currentAvailability').innerHTML = `<p style="color: var(--danger);">Error: ${err.message}</p>`;
+      }
+    }
+
+    async function updateAvailability(event, availabilityId) {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const timeSlots = uniqueSortedSlots(parseCustomTimeSlots(formData.get('timeSlots')));
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/availability/${availabilityId}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id, availableDate: getDateInputValue(formData.get('availableDate')), timeSlots }),
+        });
+        const data = await readJsonResponse(resp);
+        if (!data.success) throw new Error(data.message);
+        await loadMyAvailability();
+      } catch (err) {
+        alert('Error updating availability: ' + err.message);
+      }
+    }
+
+    async function deleteAvailability(availabilityId) {
+      if (!confirm('Delete this availability date?')) return;
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/availability/${availabilityId}/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id }),
+        });
+        const data = await readJsonResponse(resp);
+        if (!data.success) throw new Error(data.message);
+        await loadMyAvailability();
+      } catch (err) {
+        alert('Error deleting availability: ' + err.message);
+      }
+    }
+
+    window.updateAvailability = updateAvailability;
+    window.deleteAvailability = deleteAvailability;
+
+    async function readJsonResponse(resp) {
+      const contentType = resp.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('The server route is not available yet. Please redeploy/restart the backend, then try again.');
+      }
+      return resp.json();
+    }
+
+    // ============ NOTIFICATIONS ============
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizePatientName(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getNotificationPatientId(notification) {
+      if (notification.target_user_id) return Number(notification.target_user_id);
+
+      const message = normalizePatientName(notification.message);
+      if (!message || !allPatients.length) return null;
+
+      const patientMatches = allPatients
+        .map((patient) => {
+          const names = [
+            `${patient.first_name || ''} ${patient.last_name || ''}`,
+            `${patient.first_name || ''} ${patient.middle_name || ''} ${patient.last_name || ''}`,
+            patient.display_name,
+          ]
+            .map(normalizePatientName)
+            .filter(Boolean);
+          const match = names.find((name) => message.includes(name));
+          return match ? { patient, length: match.length } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
+
+      return patientMatches[0]?.patient?.user_id || null;
+    }
+
+    async function openNotificationPatient(notificationId, patientUserId) {
+      if (!patientUserId) return;
+
+      try {
+        await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, { method: 'POST' });
+      } catch (err) {
+        console.warn('Could not mark notification read', err);
+      }
+
+      switchSection('patient-records');
+      if (!allPatients.length) {
+        await loadAllPatients();
+      }
+      await selectPatientForRecords(patientUserId);
+      document.getElementById('patient-records')?.scrollIntoView({ block: 'start' });
+      loadNotifications();
+    }
+
+    async function loadNotifications() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/notifications?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+
+        setDoctorNotificationBadge(data.notifications || []);
+
+        const list = document.getElementById('notificationsList');
+        if (!data.notifications || data.notifications.length === 0) {
+          list.innerHTML = '<p style="color: var(--muted);">No notifications.</p>';
+          return;
+        }
+
+        if (!allPatients.length) {
+          await loadAllPatients();
+        }
+
+        list.innerHTML = data.notifications.map(n => {
+          const patientUserId = getNotificationPatientId(n);
+          const clickableStyles = patientUserId
+            ? 'cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;'
+            : '';
+          const clickableAttrs = patientUserId
+            ? `role="button" tabindex="0" data-notification-id="${n.id}" data-patient-id="${patientUserId}" title="Open patient record"`
+            : '';
+          const helperText = patientUserId ? '<span style="color: var(--primary); font-size: 0.85rem; font-weight: 600;">Open patient record</span>' : '';
+
+          return `
+            <div class="data-card notification-card" ${clickableAttrs} style="opacity: ${n.read ? '0.6' : '1'}; ${clickableStyles}">
+              <p style="margin: 0 0 0.5rem 0;">${escapeHtml(n.message)}</p>
+              <p style="margin: 0; font-size: 0.85rem; color: var(--muted);">${new Date(n.created_at).toLocaleString()}</p>
+              ${helperText}
+            </div>
+          `;
+        }).join('');
+
+        list.querySelectorAll('[data-patient-id]').forEach((card) => {
+          const handleOpen = () => openNotificationPatient(card.dataset.notificationId, Number(card.dataset.patientId));
+          card.addEventListener('click', handleOpen);
+          card.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleOpen();
+            }
+          });
+        });
+      } catch (err) {
+        document.getElementById('notificationsList').innerHTML = `<p style="color: var(--danger);">Error: ${err.message}</p>`;
+      }
+    }
+
+    // ============ REPORTS ============
+
+    function buildLocalAnalyticsReport() {
+      const consultations = consultationsData || [];
+      const byStatusMap = consultations.reduce((acc, item) => {
+        const status = item.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+
+      const byDayMap = consultations.reduce((acc, item) => {
+        const day = String(item.created_at || item.consultation_date || '').slice(0, 10) || 'Unknown';
+        acc[day] = (acc[day] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        generatedAt: new Date().toISOString(),
+        totals: {
+          totalConsultations: consultations.length,
+          activeConsultations: consultations.filter(item => ['pending', 'scheduled', 'under-review'].includes(item.status)).length,
+        },
+        consultationStatus: Object.entries(byStatusMap)
+          .map(([status, count]) => ({ status, count }))
+          .sort((a, b) => Number(b.count) - Number(a.count)),
+        dailyTrend: Object.entries(byDayMap)
+          .map(([day, count]) => ({ day, count }))
+          .sort((a, b) => String(a.day).localeCompare(String(b.day))),
+      };
+    }
+
+    function renderAnalyticsReport(report) {
+      const reportEl = document.getElementById('diagnosticsReport');
+      if (!reportEl) return;
+
+      const statuses = report.consultationStatus || [];
+      const trend = report.dailyTrend || [];
+      const totals = report.totals || {};
+
+      const statusRows = statuses.length ? statuses.map(s => `
+        <tr>
+          <td>${String(s.status || 'unknown')}</td>
+          <td>${s.count}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="2">No consultation status data yet.</td></tr>';
+
+      const trendRows = trend.length ? trend.map(row => `
+        <tr>
+          <td>${row.day}</td>
+          <td>${row.count}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="2">No daily trend data yet.</td></tr>';
+
+      reportEl.innerHTML = `
+        <div class="report-card">
+          <div class="report-head">
+            <div>
+              <h3>Consultation Analytics</h3>
+              <p style="margin:0; color:#34495e;">Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+            </div>
+            <button type="button" class="primary" onclick="window.print()">Download PDF</button>
+          </div>
+          <div class="report-grid">
+            <div class="metric-box">
+              <span>Total Consultations</span>
+              <strong>${totals.totalConsultations || 0}</strong>
+            </div>
+            <div class="metric-box">
+              <span>Active Consultations</span>
+              <strong>${totals.activeConsultations || 0}</strong>
+            </div>
+            <div>
+              <h3>Consultations by Status</h3>
+              <table class="report-table">
+                <thead><tr><th>Status</th><th>Count</th></tr></thead>
+                <tbody>${statusRows}</tbody>
+              </table>
+            </div>
+            <div>
+              <h3>Daily Consultation Trend</h3>
+              <table class="report-table">
+                <thead><tr><th>Day</th><th>Count</th></tr></thead>
+                <tbody>${trendRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadDiagnosticsReport() {
+      const debug = document.getElementById('diagnosticsDebug');
+      const reportEl = document.getElementById('diagnosticsReport');
+      if (!debug || !reportEl) return;
+
+      try {
+        if (!consultationsData.length) {
+          await loadConsultations();
+        }
+
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/reports/diagnostics?userId=${authUser.id}`);
+        const contentType = resp.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('Analytics API is not available yet.');
+        }
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+
+        const report = data.report || {};
+        debug.textContent = '';
+        renderAnalyticsReport(report);
+      } catch (err) {
+        debug.textContent = '';
+        renderAnalyticsReport(buildLocalAnalyticsReport());
+      }
+    }
+
+    document.getElementById('viewAnalyticsBtn')?.addEventListener('click', () => {
+      const panel = document.getElementById('analyticsPanel');
+      if (panel) panel.style.display = 'block';
+      loadDiagnosticsReport();
+    });
+
+    // ============ PATIENT RECORDS ============
+
+    let allPatients = [];
+    let selectedPatientId = null;
+
+    async function loadAllPatients() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/patients?doctorId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+
+        allPatients = data.patients || [];
+        document.getElementById('patientRecordsDebug').textContent = `Loaded ${allPatients.length} patients.`;
+        renderPatientList();
+      } catch (err) {
+        document.getElementById('patientRecordsList').innerHTML = `<p style="color: var(--danger);">Error loading patients: ${err.message}</p>`;
+      }
+    }
+
+    function renderPatientList() {
+      const container = document.getElementById('patientRecordsList');
+      if (!allPatients || allPatients.length === 0) {
+        container.innerHTML = '<p style="color: var(--muted);">No patients found.</p>';
+        return;
+      }
+
+      const html = allPatients.map(p => `
+        <div class="data-card" onclick="selectPatientForRecords(${p.user_id})" style="cursor: pointer;">
+          <div class="data-row">
+            <div class="data-label">Name</div>
+            <div class="data-value">${p.first_name} ${p.middle_name || ''} ${p.last_name}</div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Email</div>
+            <div class="data-value">${p.email}</div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Mobile</div>
+            <div class="data-value">${p.mobile}</div>
+          </div>
+          <div class="data-row">
+            <div class="data-label">Consultations</div>
+            <div class="data-value">${p.total_consultations || 0}</div>
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = html;
+    }
+
+    function getPatientIdFromQrText(value) {
+      const text = String(value || '').trim();
+      const match = text.match(/^EMR-Patient:(\d+)$/i) || text.match(/^(\d+)$/);
+      return match ? Number(match[1]) : null;
+    }
+
+    async function openPatientFromQrText(value) {
+      const patientUserId = getPatientIdFromQrText(value);
+      if (!patientUserId) {
+        qrScanHint.textContent = 'Invalid patient QR code.';
+        qrScanHint.style.color = 'var(--danger)';
+        return;
+      }
+
+      qrScanHint.textContent = 'Opening patient record...';
+      qrScanHint.style.color = 'var(--muted)';
+      await stopQrScanner();
+      switchSection('patient-records');
+      await selectPatientForRecords(patientUserId);
+    }
+
+    async function stopQrScanner() {
+      if (qrScanAnimationFrame) {
+        cancelAnimationFrame(qrScanAnimationFrame);
+        qrScanAnimationFrame = null;
+      }
+      if (qrScanStream) {
+        qrScanStream.getTracks().forEach(track => track.stop());
+        qrScanStream = null;
+      }
+      if (qrScanVideo) {
+        qrScanVideo.srcObject = null;
+        qrScanVideo.style.display = 'none';
+      }
+      if (startQrScanBtn) startQrScanBtn.style.display = '';
+      if (stopQrScanBtn) stopQrScanBtn.style.display = 'none';
+    }
+
+    async function startQrScanner() {
+      if (!('BarcodeDetector' in window)) {
+        qrScanHint.textContent = 'Camera QR scanning is not supported in this browser. Type or paste the QR code text instead.';
+        qrScanHint.style.color = 'var(--danger)';
+        return;
+      }
+
+      try {
+        const detector = new BarcodeDetector({ formats: ['qr_code'] });
+        qrScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        qrScanVideo.srcObject = qrScanStream;
+        qrScanVideo.style.display = 'block';
+        startQrScanBtn.style.display = 'none';
+        stopQrScanBtn.style.display = '';
+        qrScanHint.textContent = 'Point the camera at the patient QR code.';
+        qrScanHint.style.color = 'var(--muted)';
+        await qrScanVideo.play();
+
+        const scanFrame = async () => {
+          if (!qrScanStream) return;
+          try {
+            const codes = await detector.detect(qrScanVideo);
+            if (codes.length) {
+              const rawValue = codes[0].rawValue || '';
+              patientQrInput.value = rawValue;
+              await openPatientFromQrText(rawValue);
+              return;
+            }
+          } catch (err) {
+            console.warn('QR scan frame failed', err);
+          }
+          qrScanAnimationFrame = requestAnimationFrame(scanFrame);
+        };
+
+        scanFrame();
+      } catch (err) {
+        await stopQrScanner();
+        qrScanHint.textContent = `Could not start camera: ${err.message}`;
+        qrScanHint.style.color = 'var(--danger)';
+      }
+    }
+
+    async function selectPatientForRecords(patientUserId) {
+      selectedPatientId = patientUserId;
+      try {
+        // Fetch complete patient EMR with assessment
+        const emrResp = await fetch(`${API_BASE_URL}/api/doctor/patient/${patientUserId}?doctorId=${authUser.id}`);
+        const emrData = await emrResp.json();
+        if (!emrData.success) throw new Error(emrData.message);
+
+        // Fetch all consultations for this patient
+        const consResp = await fetch(`${API_BASE_URL}/api/doctor/patient/${patientUserId}/consultations?doctorId=${authUser.id}`);
+        const consData = await consResp.json();
+        if (!consData.success) throw new Error(consData.message);
+
+        const patient = emrData.emr;
+        const consultations = consData.consultations || [];
+        const assessment = patient.assessment_json ? JSON.parse(patient.assessment_json) : {};
+        const recordFiles = await loadPatientRecordFiles(patientUserId);
+
+        // Format assessment data
+        function formatAssessment(assessmentData) {
+          if (!assessmentData || Object.keys(assessmentData).length === 0) {
+            return '<p style="color: var(--muted);">No assessment data available.</p>';
+          }
+
+          const cpAbeIndicator = `
+            <div style="
+              background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f2 100%);
+              border: 2px solid #0088cc;
+              border-radius: 8px;
+              padding: 12px 16px;
+              margin-bottom: 16px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            ">
+              <span style="font-size: 20px;">🔐</span>
+              <div>
+                <strong style="color: #004a99;">CP-ABE Encrypted Assessment</strong>
+                <br/>
+                <small style="color: #0066cc;">You have doctor access to decrypt this patient data</small>
+              </div>
+            </div>
+          `;
+
+          const labels = {
+            symptoms: 'Symptoms',
+            urgent: 'Urgent',
+            healthStatus: 'Health Status',
+            hospitalized: 'Hospitalized',
+            surgery: 'Surgery',
+            highBloodPressure: 'High Blood Pressure',
+            diabetes: 'Diabetes',
+            asthma: 'Asthma / Lung Condition',
+            heartDisease: 'Heart Disease',
+            kidneyDisease: 'Kidney Disease',
+            liverDisease: 'Liver Disease',
+            tuberculosis: 'Tuberculosis',
+            cancer: 'Cancer',
+            mentalHealth: 'Mental Health Condition',
+            otherConditions: 'Other Conditions',
+            medications: 'Currently Taking Medications',
+            maintenanceMedications: 'Maintenance Medications',
+            medicineAllergy: 'Medicine Allergy',
+            foodAllergy: 'Food Allergy',
+            familyHighBloodPressure: 'Family History: High Blood Pressure',
+            familyDiabetes: 'Family History: Diabetes',
+            familyHeartDisease: 'Family History: Heart Disease',
+            familyCancer: 'Family History: Cancer',
+            familyStroke: 'Family History: Stroke',
+            smoke: 'Smoke',
+            alcohol: 'Drink Alcohol',
+            vape: 'Use Vape / E-cigarettes',
+            drugs: 'Use Recreational Drugs',
+            exercise: 'Exercise Regularly',
+            feverCough: 'Recent Fever/Cough/Colds',
+            difficultyBreathing: 'Difficulty Breathing',
+            diarrheaVomiting: 'Diarrhea / Vomiting',
+            exposedIllness: 'Exposed to Contagious Illness',
+            pregnant: 'Pregnant',
+            breastfeeding: 'Breastfeeding',
+          };
+
+          const rows = Object.keys(assessmentData).map((key) => {
+            const label = labels[key] || key;
+            const value = assessmentData[key];
+            return `
+              <div class="data-row">
+                <div class="data-label">${label}</div>
+                <div class="data-value">${value === true ? 'Yes' : value === false ? 'No' : value || '—'}</div>
+              </div>
+            `;
+          });
+
+          return `${cpAbeIndicator}<div style="max-height: 400px; overflow-y: auto;">${rows.join('')}</div>`;
+        }
+
+        // Display patient details and consultations
+        document.getElementById('patientRecordsList').innerHTML = `
+          <div>
+            <h3>Patient Information</h3>
+            <div class="data-row">
+              <div class="data-label">Name</div>
+              <div class="data-value">${patient.first_name} ${patient.middle_name || ''} ${patient.last_name}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Email</div>
+              <div class="data-value">${patient.email}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Mobile</div>
+              <div class="data-value">${patient.mobile}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">DOB</div>
+              <div class="data-value">${patient.date_of_birth}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Age</div>
+              <div class="data-value">${patient.age}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Sex</div>
+              <div class="data-value">${patient.sex}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Address 1</div>
+              <div class="data-value">${patient.address}</div>
+            </div>
+            <div class="data-row">
+              <div class="data-label">Address 2</div>
+              <div class="data-value">${patient.address2 || 'None'}</div>
+            </div>
+
+            <h3 style="margin-top: 2rem;">Health Assessment Summary</h3>
+            ${formatAssessment(assessment)}
+
+            <h3 style="margin-top: 2rem;">Uploaded Medical Records</h3>
+            ${renderPatientRecordFiles(recordFiles)}
+
+            <h3 style="margin-top: 2rem;">Consultation History</h3>
+            ${consultations.length === 0 ? 
+              '<p style="color: var(--muted);">No consultations yet.</p>' :
+              consultations.map(c => `
+                <div class="data-card">
+                  <div class="data-row">
+                    <div class="data-label">Date & Time</div>
+                    <div class="data-value">${c.consultation_date || 'Not scheduled'} ${c.consultation_time ? 'at ' + c.consultation_time : ''}</div>
+                  </div>
+                  <div class="data-row">
+                    <div class="data-label">Status</div>
+                    <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+                  </div>
+                  <div class="data-row">
+                    <div class="data-label">Concerns/Reason</div>
+                    <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.concerns}</div>
+                  </div>
+                  ${c.notes ? `<div class="data-row">
+                    <div class="data-label">Doctor Notes</div>
+                    <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.notes}</div>
+                  </div>` : ''}
+                  ${c.diagnostic_result ? `<div class="data-row">
+                    <div class="data-label">Result</div>
+                    <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.diagnostic_result}</div>
+                  </div>` : ''}
+                  ${c.prescription ? `<div class="data-row">
+                    <div class="data-label">Prescription</div>
+                    <div class="data-value" style="white-space: pre-wrap; word-break: break-word;">${c.prescription}</div>
+                  </div>` : ''}
+                </div>
+              `).join('')
+            }
+
+            <button id="backToPatientList" class="primary secondary-action" style="margin-top: 2rem;">Back to Patient List</button>
+          </div>
+        `;
+
+        document.getElementById('backToPatientList').addEventListener('click', () => {
+          selectedPatientId = null;
+          renderPatientList();
+        });
+      } catch (err) {
+        alert('Error loading patient details: ' + err.message);
+        renderPatientList();
+      }
+    }
+
+    window.selectPatientForRecords = selectPatientForRecords;
+
+    // ============ PROFILE ============
+
+    async function loadProfile() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/profile?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (data.success && data.profile) {
+          const p = data.profile;
+          document.getElementById('doctorName').value = p.display_name || '';
+          document.getElementById('doctorEmail').value = p.email || '';
+          document.getElementById('doctorLicense').value = p.license_number || '';
+          document.getElementById('totalConsultations').value = p.total_consultations || 0;
+        }
+      } catch (err) {
+        console.error('Error loading doctor profile:', err);
+      }
+    }
+
+    document.getElementById('doctorProfileForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const updates = {
+        display_name: document.getElementById('doctorName').value.trim(),
+        license_number: document.getElementById('doctorLicense').value.trim(),
+      };
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/doctor/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id, updates }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        document.getElementById('profileHint').textContent = '✓ Profile updated successfully.';
+        document.getElementById('profileHint').style.color = 'var(--success)';
+        loadProfile();
+      } catch (err) {
+        document.getElementById('profileHint').textContent = `❌ ${err.message}`;
+        document.getElementById('profileHint').style.color = 'var(--danger)';
+      }
+    });
+
+    // ============ INITIAL LOAD ============
+
+    // Show the main consultations dashboard on load
+    switchSection('consultations', currentFilter);
+
+    loadConsultations();
+    loadMyAvailability();
+    loadNotifications();
+    loadProfile();
+    loadAllPatients();
+    setInterval(loadConsultations, 30000);
+  });
+  </script>
+</body>
+</html>

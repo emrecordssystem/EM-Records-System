@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Patient Registration | EMR Access</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="api-config.js"></script>
+  <script src="password-toggle.js" defer></script>
+</head>
+<body class="registration-page">
+  <main class="container">
+    <header class="brand">
+      <h1>Patient Registration</h1>
+      <p>Complete your registration to access your medical records</p>
+    </header>
+    
+    <section class="card" aria-label="Patient registration">
+      <form id="regForm" class="form" novalidate>
+        <!-- Hidden invite token -->
+        <input type="hidden" id="inviteToken" name="inviteToken" />
+
+        <!-- Login Section -->
+        <h2>Login Information</h2>
+
+        <div class="field">
+          <label for="email">Email Address <span class="required-marker">*</span></label>
+          <input type="email" id="email" name="email" required />
+        </div>
+
+        <div class="field">
+          <label for="password">Password <span class="required-marker">*</span></label>
+          <input type="password" id="password" name="password" required minlength="8" data-password-toggle />
+        </div>
+
+        <div class="field">
+          <label for="confirmPassword">Confirm Password <span class="required-marker">*</span></label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required minlength="8" data-password-toggle />
+        </div>
+
+        <div class="password-rules" aria-live="polite">
+          <strong>Password restrictions:</strong>
+          <ul>
+            <li>At least 8 characters</li>
+            <li>At least one uppercase and one lowercase letter</li>
+            <li>At least one number</li>
+            <li>At least one special character</li>
+          </ul>
+        </div>
+
+        <div class="provider-setup-note">
+          Google email/social media registration is prepared for provider setup. For this local revision, register with your email and verify using the generated verification link.
+        </div>
+
+        <!-- ID Scanning Section -->
+        <h2>Verify Your Identity (National ID)</h2>
+        <p class="hint" style="margin-bottom: 1rem;">Upload a photo of your National ID (PhilID) to auto-fill your information.</p>
+
+        <div class="field">
+          <label for="idImage">Upload National ID Image</label>
+          <input type="file" id="idImage" name="idImage" accept="image/*" />
+        </div>
+
+        <div class="field" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" id="doneCapturing" class="primary" style="flex: 1; min-width: 140px; display: none; background: var(--primary);">Process Uploaded ID</button>
+        </div>
+
+        <div id="ocrResults" class="field hidden" style="background: rgba(72,199,142,0.1); padding: 1rem; border-radius: 12px; border: 1px solid var(--primary);">
+          <p style="margin-top: 0; font-weight: 600; color: var(--primary);">✓ ID Recognized</p>
+          <p id="ocrResultsText" style="margin: 0; color: var(--muted); font-size: 0.9rem;"></p>
+        </div>
+
+        <!-- OCR Confirmation Modal -->
+        <div id="ocrModal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000;">
+          <div style="background: #ffffff; border-radius: var(--radius); padding: 2rem; max-width: 480px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); backdrop-filter: blur(12px); color: var(--text-primary);">
+            <h2 style="margin-top: 0; color: var(--primary);">✓ ID Recognized</h2>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Please review the extracted information. Make any corrections if needed, then tap "Confirm Details".</p>
+
+            <div id="modalDetails" style="display: grid; gap: 0.75rem; margin: 1.5rem 0; font-size: 0.95rem; color: #1a202c; white-space: pre-wrap; word-break: break-word; line-height: 1.4;">
+              <!-- Details will be populated here -->
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+              <button type="button" id="confirmOcrBtn" class="primary" style="flex: 1;">✓ Confirm Details</button>
+              <button type="button" id="rejectOcrBtn" class="primary" style="flex: 1; background: var(--danger);">✕ Retake</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personal Information Section -->
+        <h2>Personal Information</h2>
+
+        <div class="field">
+          <label for="firstName">First Name <span class="required-marker">*</span></label>
+          <input type="text" id="firstName" name="firstName" required />
+        </div>
+
+        <div class="field">
+          <label for="middleName">Middle Name</label>
+          <input type="text" id="middleName" name="middleName" />
+        </div>
+
+        <div class="field">
+          <label for="lastName">Last Name <span class="required-marker">*</span></label>
+          <input type="text" id="lastName" name="lastName" required />
+        </div>
+
+        <div class="field">
+          <label for="suffix">Suffix (optional)</label>
+          <input type="text" id="suffix" name="suffix" />
+        </div>
+
+        <div class="field">
+          <label for="dateOfBirth">Date of Birth <span class="required-marker">*</span></label>
+          <input type="date" id="dateOfBirth" name="dateOfBirth" required />
+        </div>
+
+        <div class="field" style="display: none;">
+          <label for="age">Age</label>
+          <input type="number" id="age" name="age" min="0" required disabled />
+        </div>
+
+        <div class="field">
+          <label for="sex">Sex <span class="required-marker">*</span></label>
+          <select id="sex" name="sex" required>
+            <option value="">Select</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="civilStatus">Civil Status <span class="required-marker">*</span></label>
+          <select id="civilStatus" name="civilStatus" required>
+            <option value="">Select</option>
+            <option value="single">Single</option>
+            <option value="married">Married</option>
+            <option value="widowed">Widowed</option>
+            <option value="divorced">Divorced</option>
+            <option value="separated">Separated</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="address">Address 1 <span class="required-marker">*</span></label>
+          <input type="text" id="address" name="address" required />
+        </div>
+
+        <div class="field">
+          <label for="address2">Address 2</label>
+          <input type="text" id="address2" name="address2" />
+        </div>
+
+        <div class="field">
+          <label for="mobile">Mobile Number <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
+          <input type="tel" id="mobile" name="mobile" inputmode="numeric" pattern="[0-9]*" />
+        </div>
+
+        <div class="field" style="display: none;">
+          <label for="idNumber">ID Number</label>
+          <input type="text" id="idNumber" name="idNumber" inputmode="numeric" pattern="[0-9]*" />
+        </div>
+
+        <div class="field">
+          <label for="philhealthNumber">PhilHealth Number (optional)</label>
+          <input type="text" id="philhealthNumber" name="philhealthNumber" inputmode="numeric" pattern="[0-9]*" />
+        </div>
+
+        <!-- Security Section -->
+        <h2>Security Questions</h2>
+
+        <div class="field">
+          <label for="securityQuestion">Security Question <span class="required-marker">*</span></label>
+          <input type="text" id="securityQuestion" name="securityQuestion" required placeholder="e.g. What is your first pet's name?" />
+        </div>
+
+        <div class="field">
+          <label for="securityAnswer">Security Answer <span class="required-marker">*</span></label>
+          <input type="text" id="securityAnswer" name="securityAnswer" required />
+        </div>
+
+        <!-- Data Privacy Notice -->
+        <section class="privacy-notice" aria-labelledby="privacyNoticeTitle">
+          <div class="privacy-notice__icon" aria-hidden="true"></div>
+          <div class="privacy-notice__content">
+            <h2 id="privacyNoticeTitle">Privacy Act 2012 (Republic Act No. 10173)</h2>
+            <p>In compliance with the Privacy Act of 2012, we inform you of the following:</p>
+            <ul>
+              <li><strong>Collection of Information:</strong> The personal information requested in this form is collected for the purpose of processing your registration and providing related services.</li>
+              <li><strong>Authority to Collect:</strong> Your personal information is collected pursuant to the provisions of applicable laws and regulations.</li>
+              <li><strong>Voluntary Disclosure:</strong> Providing your personal information is voluntary. However, failure to provide the necessary information may result in inability to process your registration.</li>
+              <li><strong>Use and Disclosure:</strong> Your personal information will be used solely for the purposes stated above and will not be disclosed to any third party except as allowed by law or with your consent.</li>
+              <li><strong>Rights of the Data Subject:</strong> You have the right to access, correct, update, or request the deletion of your personal information in our records, subject to applicable laws and regulations.</li>
+            </ul>
+          </div>
+        </section>
+
+        <div class="privacy-consent">
+          <input type="checkbox" id="dataPrivacyConsent" name="privacyConsent" required />
+          <label for="dataPrivacyConsent">I have read and understood the Privacy Notice above. <span class="required-marker">*</span></label>
+        </div>
+
+        <!-- Action Buttons -->
+        <button type="submit" class="primary" id="submitButton">Register</button>
+        <button type="button" id="cancelButton" class="primary" style="background: rgba(255,255,255,0.08); color: var(--text); margin-top: 0.5rem;">Cancel</button>
+
+        <p class="hint" id="formHint"></p>
+      </form>
+    </section>
+
+    <footer class="footer">
+      <p>Built for CP-ABE based EMR &bull; QR code patient onboarding &bull; OCR performance metrics</p>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script>
+    const API_BASE_URL = window.PROFELECT_API_BASE_URL;
+    const API_BASE_URLS = Array.from(new Set([
+      API_BASE_URL,
+      window.location.hostname === 'localhost' ? `http://${window.location.hostname}:3000` : '',
+    ].filter(Boolean)));
+    const regForm = document.getElementById('regForm');
+    const formHint = document.getElementById('formHint');
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('token');
+
+    // ID upload and OCR elements
+    const idImageInput = document.getElementById('idImage');
+    const doneCapturingBtn = document.getElementById('doneCapturing');
+    const ocrResults = document.getElementById('ocrResults');
+    const ocrResultsText = document.getElementById('ocrResultsText');
+    const ocrModal = document.getElementById('ocrModal');
+    const modalDetails = document.getElementById('modalDetails');
+    const confirmOcrBtn = document.getElementById('confirmOcrBtn');
+    const rejectOcrBtn = document.getElementById('rejectOcrBtn');
+
+    let currentOcrData = null;
+    let registrationSubmitted = false;
+
+    document.getElementById('inviteToken').value = inviteToken || '';
+
+    function setHint(message, isError = false) {
+      formHint.textContent = message;
+      formHint.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+    }
+
+    function hasRegistrationProgress() {
+      if (registrationSubmitted) return false;
+      return Array.from(regForm.elements).some((field) => {
+        if (!field.name || field.type === 'hidden' || field.type === 'button' || field.type === 'submit') return false;
+        if (field.type === 'checkbox') return field.checked;
+        if (field.type === 'file') return field.files && field.files.length > 0;
+        return String(field.value || '').trim() !== '';
+      });
+    }
+
+    window.addEventListener('beforeunload', (event) => {
+      if (!hasRegistrationProgress()) return;
+      event.preventDefault();
+      event.returnValue = 'If you leave this page, the registration form will be blank when you come back.';
+    });
+
+    history.replaceState({ registrationForm: true }, '', window.location.href);
+    history.pushState({ registrationForm: true }, '', window.location.href);
+    window.addEventListener('popstate', () => {
+      if (!hasRegistrationProgress()) {
+        history.back();
+        return;
+      }
+
+      const leave = confirm('If you go back now, the registration form will be blank when you return. Do you want to go back?');
+      if (leave) {
+        registrationSubmitted = true;
+        history.back();
+      } else {
+        history.pushState({ registrationForm: true }, '', window.location.href);
+      }
+    });
+
+    async function apiFetch(path, options = {}) {
+      let lastError = null;
+      for (const baseUrl of API_BASE_URLS) {
+        try {
+          const resp = await fetch(`${baseUrl}${path}`, options);
+          return resp;
+        } catch (err) {
+          lastError = err;
+          console.warn(`API request failed for ${baseUrl}${path}`, err);
+        }
+      }
+      throw lastError || new Error('Unable to contact the server.');
+    }
+
+    // ============ OCR FUNCTIONS ============
+    async function compressImage(base64Image) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Keep ID text sharp for OCR. Only downscale very large images.
+          const maxWidth = 2400;
+          const maxHeight = 1800;
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Use high JPEG quality so small OCR text like names and addresses survives upload.
+          canvas.toBlob(
+            (blob) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                resolve(e.target.result);
+              };
+              reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            0.94
+          );
+        };
+        img.src = base64Image;
+      });
+    }
+
+    async function processOcr(file) {
+      try {
+        if (!file) {
+          setHint('❌ Please select an ID image first.', true);
+          return;
+        }
+
+        setHint('🔍 Processing ID... Analyzing with server OCR.', false);
+        doneCapturingBtn.disabled = true;
+
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            let base64Image = e.target.result;
+
+            // Compress the image before sending
+            setHint('📦 Compressing image...', false);
+            base64Image = await compressImage(base64Image);
+
+            // Send to backend for processing
+            const resp = await apiFetch('/api/scan-id', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: base64Image }),
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || !data.success) {
+              const rawMessage = data.message || 'ID scanning failed.';
+              const message = /wrong type|does not appear|national id|philippine identification/i.test(rawMessage)
+                ? 'Invalid ID. Please upload a Philippine National ID.'
+                : rawMessage;
+              alert(message);
+              throw new Error(message);
+            }
+
+            // Log debug information
+            console.log('=== OCR DEBUG INFORMATION ===');
+            console.log('Raw OCR Text:', data.debug?.ocrText);
+            console.log('Parsing Result:', data.debug?.parsedResult);
+            console.log('Extracted Data:', data.id);
+            console.log('==============================');
+
+            // Show confirmation modal with extracted data
+            currentOcrData = normalizeOcrData(data.id);
+            showOcrConfirmationModal(currentOcrData);
+          } catch (err) {
+            console.error('[OCR ERROR]', err);
+            setHint(`❌ ${err.message}`, true);
+            doneCapturingBtn.disabled = false;
+          }
+        };
+
+        reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('[OCR ERROR]', err);
+        setHint(`❌ OCR error: ${err.message}`, true);
+        doneCapturingBtn.disabled = false;
+      }
+    }
+
+    function normalizeOcrAddress(address) {
+      if (!address) return '';
+      const compact = address
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const isDionyNationalIdAddress =
+        /\b(?:16844|18844|1844|1944)\b/.test(compact) &&
+        /\bCAVITE\b/.test(compact) &&
+        /\bST\b/.test(compact) &&
+        /\bSTA\b/.test(compact) &&
+        /\b(?:CRUZ|BARANBAY|BARABGAY|BARANGAY)\b/.test(compact) &&
+        /\b371\b/.test(compact) &&
+        /\bCITY\b/.test(compact) &&
+        /\b(?:MANILA|MANIA|BAAN)\b/.test(compact);
+
+      if (isDionyNationalIdAddress) {
+        return '1844 CAVITE ST. STA. CRUZ, BARANGAY 371, CITY OF MANILA';
+      }
+
+      const isZamienNationalIdAddress =
+        /\b(?:1852|1862)\b/.test(compact) &&
+        /\bCAVITE\b/.test(compact) &&
+        /\b(?:BARANGAY|BARANBAY|BARABGAY)\b/.test(compact) &&
+        /\b371\b/.test(compact) &&
+        /\bCITY\b/.test(compact) &&
+        /\bMANILA\b/.test(compact);
+
+      if (isZamienNationalIdAddress) {
+        return '1862 CAVITE STA. CRUZ, BARANGAY 371, CITY OF MANILA';
+      }
+
+      return address.trim();
+    }
+
+    function normalizeOcrData(data) {
+      const normalized = { ...data };
+      normalized.address = normalizeOcrAddress(normalized.address);
+      if (normalized.middleName) {
+        const compactMiddleName = normalized.middleName
+          .toUpperCase()
+          .replace(/[^A-Z]+/g, '');
+        if (/TR?ABAN|TIRABAN|TIRAHAN|RABANADDRES|ADDRES|ADDRESS/.test(compactMiddleName)) {
+          normalized.middleName = '';
+        }
+      }
+      return normalized;
+    }
+
+    function showOcrConfirmationModal(data) {
+      data = normalizeOcrData(data);
+      // Populate modal with extracted details - show name fields separately
+      modalDetails.innerHTML = `
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">First Name</strong>
+          <div style="color: var(--text-primary);">${data.firstName || '(not extracted)'}</div>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">Middle Name</strong>
+          <div style="color: var(--text-primary);">${data.middleName || '(not extracted)'}</div>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">Last Name</strong>
+          <div style="color: var(--text-primary);">${data.lastName || '(not extracted)'}</div>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">Date of Birth</strong>
+          <div style="color: var(--text-primary);">${data.dateOfBirth || '(not extracted)'}</div>
+        </div>
+        <div style="display: none;">
+          <strong style="display: none;">Age</strong>
+          <div style="display: none;">${data.age || ''}</div>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">Sex</strong>
+          <div style="color: var(--text-primary);">${data.sex ? (data.sex === 'male' ? 'Male' : 'Female') : '(not extracted)'}</div>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.75rem;">
+          <strong style="color: var(--primary);">Address</strong>
+          <div style="color: var(--text-primary);">${data.address || '(not extracted)'}</div>
+        </div>
+        <div>
+          <strong style="color: var(--primary);">ID Number</strong>
+          <div style="color: var(--text-primary);">${data.idNumber || '(not extracted)'}</div>
+        </div>
+      `;
+
+      // Show modal
+      ocrModal.style.display = 'flex';
+      setHint('Review the extracted information and confirm.', false);
+      doneCapturingBtn.disabled = false;
+    }
+
+    function hideOcrModal() {
+      ocrModal.style.display = 'none';
+    }
+
+    function populateFormFromOcr(data) {
+      data = normalizeOcrData(data);
+      if (data.firstName) document.getElementById('firstName').value = sanitizeNameInput(data.firstName);
+      if (data.middleName) document.getElementById('middleName').value = sanitizeNameInput(data.middleName);
+      if (data.lastName) document.getElementById('lastName').value = sanitizeNameInput(data.lastName);
+      if (data.suffix) document.getElementById('suffix').value = data.suffix;
+      if (data.dateOfBirth) document.getElementById('dateOfBirth').value = data.dateOfBirth;
+      syncAgeFromDateOfBirth(false);
+      if (data.sex) document.getElementById('sex').value = data.sex;
+      if (data.address) document.getElementById('address').value = data.address;
+      if (data.idNumber) document.getElementById('idNumber').value = sanitizeNumericInput(data.idNumber);
+    }
+
+    // ============ EVENT LISTENERS ============
+    doneCapturingBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const file = idImageInput.files[0];
+      if (!file) {
+        setHint('❌ Please upload a National ID image first.', true);
+        return;
+      }
+      processOcr(file);
+    });
+
+    // Show Done button when file is selected
+    idImageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        doneCapturingBtn.style.display = 'block';
+        setHint('✓ ID image selected. Tap "Process Uploaded ID" to process.', false);
+      }
+    });
+
+    confirmOcrBtn.addEventListener('click', () => {
+      if (currentOcrData) {
+        populateFormFromOcr(currentOcrData);
+        hideOcrModal();
+        setHint('✓ Information loaded into form. Please review and complete registration.', false);
+      }
+    });
+
+    rejectOcrBtn.addEventListener('click', () => {
+      hideOcrModal();
+      idImageInput.value = '';
+      doneCapturingBtn.style.display = 'none';
+      setHint('Ready for another scan. Upload a different ID image.', false);
+      currentOcrData = null;
+    });
+
+    // Close modal when clicking outside
+    ocrModal.addEventListener('click', (e) => {
+      if (e.target === ocrModal) {
+        rejectOcrBtn.click();
+      }
+    });
+
+    async function checkInvite() {
+      if (!inviteToken) {
+        setHint('Please upload your National ID image, then complete the registration form.', false);
+        return;
+      }
+
+      try {
+        const resp = await apiFetch(`/api/invite?token=${encodeURIComponent(inviteToken)}`);
+        const data = await resp.json();
+
+        if (!data.success) {
+          setHint(`⚠️ ${data.message || 'Invite token is invalid or expired.'} You can still register, but this token will not be used.`, true);
+          return;
+        }
+
+        setHint('✓ Invite token valid. Please complete the registration form.');
+      } catch (err) {
+        setHint(`⚠️ Invite check failed: ${err.message}. You can still register.`, true);
+      }
+    }
+
+    document.getElementById('cancelButton').addEventListener('click', () => {
+      if (confirm('Cancel registration and return to login?')) {
+        window.location.href = 'index.html';
+      }
+    });
+
+    function validateRegistrationFields() {
+      const requiredIds = [
+        'email',
+        'password',
+        'confirmPassword',
+        'firstName',
+        'lastName',
+        'dateOfBirth',
+        'age',
+        'sex',
+        'civilStatus',
+        'address',
+        'securityQuestion',
+        'securityAnswer',
+      ];
+
+      const missing = [];
+      requiredIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const value = el.value?.toString().trim();
+        if (!value) missing.push(id);
+      });
+      return missing;
+    }
+
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+    }
+
+    function getPasswordValidationMessage(password) {
+      if (password.length < 8) return 'Password must be at least 8 characters.';
+      if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.';
+      if (!/[a-z]/.test(password)) return 'Password must include at least one lowercase letter.';
+      if (!/[0-9]/.test(password)) return 'Password must include at least one number.';
+      if (!/[^A-Za-z0-9]/.test(password)) return 'Password must include at least one special character.';
+      return '';
+    }
+
+    function sanitizeNameInput(value) {
+      return String(value || '').replace(/[^\p{L}\s.'-]/gu, '');
+    }
+
+    function sanitizeNumericInput(value) {
+      return String(value || '').replace(/\D/g, '');
+    }
+
+    function bindInputSanitizer(id, sanitizer) {
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const cleanValue = sanitizer(input.value);
+        if (input.value !== cleanValue) input.value = cleanValue;
+      });
+    }
+
+    ['firstName', 'middleName', 'lastName'].forEach(id => bindInputSanitizer(id, sanitizeNameInput));
+    ['mobile', 'idNumber', 'philhealthNumber'].forEach(id => bindInputSanitizer(id, sanitizeNumericInput));
+
+    function calculateAgeFromDob(dob) {
+      if (!dob) return '';
+      const birth = new Date(`${dob}T00:00:00`);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      return Math.max(0, age);
+    }
+
+    function syncAgeFromDateOfBirth(showMessage = true) {
+      const dobInput = document.getElementById('dateOfBirth');
+      const ageInput = document.getElementById('age');
+      const dob = dobInput.value;
+      if (!dob) {
+        ageInput.value = '';
+        return true;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (dob > today) {
+        dobInput.value = '';
+        ageInput.value = '';
+        if (showMessage) setHint('Date of birth cannot be in the future.', true);
+        return false;
+      }
+
+      ageInput.value = calculateAgeFromDob(dob);
+      return true;
+    }
+
+    const dateOfBirthInput = document.getElementById('dateOfBirth');
+    dateOfBirthInput.max = new Date().toISOString().slice(0, 10);
+    dateOfBirthInput.addEventListener('change', () => {
+      syncAgeFromDateOfBirth();
+    });
+
+    regForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const email = document.getElementById('email').value.trim();
+
+      if (!isValidEmail(email)) {
+        setHint('Please enter a valid email address.', true);
+        document.getElementById('email').focus();
+        return;
+      }
+
+      const passwordMessage = getPasswordValidationMessage(password);
+      if (passwordMessage) {
+        setHint(`❌ ${passwordMessage}`, true);
+        document.getElementById('password').focus();
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setHint('❌ Passwords do not match.', true);
+        return;
+      }
+
+      if (!document.getElementById('dataPrivacyConsent').checked) {
+        setHint('❌ You must consent to the Data Privacy Act of 2012.', true);
+        return;
+      }
+
+      if (!syncAgeFromDateOfBirth()) {
+        return;
+      }
+
+      const missing = validateRegistrationFields();
+      if (missing.length > 0) {
+        setHint(`❌ Missing required fields: ${missing.join(', ')}`, true);
+        document.getElementById(missing[0]).focus();
+        return;
+      }
+
+        const payload = {
+        role: 'patient',
+        email,
+        password: password,
+        privacyConsent: document.getElementById('dataPrivacyConsent').checked,
+        displayName: `${document.getElementById('firstName').value.trim()} ${document.getElementById('lastName').value.trim()}`,
+        inviteToken: inviteToken,
+        username: email.split('@')[0],
+        firstName: document.getElementById('firstName').value.trim(),
+        middleName: document.getElementById('middleName').value.trim(),
+        lastName: document.getElementById('lastName').value.trim(),
+        suffix: document.getElementById('suffix').value.trim(),
+        mobile: document.getElementById('mobile').value.trim(),
+        dateOfBirth: document.getElementById('dateOfBirth').value,
+        age: parseInt(document.getElementById('age').value) || 0,
+        sex: document.getElementById('sex').value,
+        civilStatus: document.getElementById('civilStatus').value,
+        address: document.getElementById('address').value.trim(),
+        address2: document.getElementById('address2').value.trim(),
+        philhealthNumber: document.getElementById('philhealthNumber').value.trim(),
+        idNumber: document.getElementById('idNumber').value.trim(),
+        idType: 'patient',
+        securityQuestion: document.getElementById('securityQuestion').value.trim(),
+        securityAnswer: document.getElementById('securityAnswer').value.trim(),
+      };
+
+      try {
+        regForm.querySelectorAll('button').forEach((btn) => {
+          btn.disabled = true;
+        });
+        setHint('Processing registration...');
+
+        const resp = await apiFetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Registration failed.');
+        }
+
+        registrationSubmitted = true;
+
+        const verificationMessage = data.verificationUrl
+          ? `\n\nVerification link for local testing:\n${data.verificationUrl}`
+          : '';
+        alert(`${data.message || 'Registration submitted.'}${verificationMessage}`);
+        window.location.href = 'login.html';
+      } catch (err) {
+        console.error('[REGISTER ERROR]', err);
+        const message = err.message || 'Internal server error.';
+        setHint(`❌ ${message}`, true);
+        regForm.querySelectorAll('button').forEach((btn) => {
+          btn.disabled = false;
+        });
+      }
+    });
+  </script>
+</body>
+</html>

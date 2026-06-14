@@ -1,0 +1,4218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard | EMR System Management</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-primary);
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 220px;
+      height: 100vh;
+      background: linear-gradient(135deg, #1a365d 0%, #2d5a8c 100%);
+      color: white;
+      padding: 1.5rem 0;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .sidebar-header {
+      padding: 0 1.5rem 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 1.5rem;
+    }
+
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0 1rem;
+    }
+
+    .sidebar-nav-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .sidebar-nav-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    .sidebar-nav-item.active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-left: 4px solid #ffd700;
+    }
+
+    .sidebar-badge {
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #ef4444;
+      color: white;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      line-height: 1;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+    }
+
+    .sidebar-badge.active {
+      display: inline-flex;
+    }
+
+    .main-wrapper {
+      margin-left: 220px;
+      width: calc(100% - 220px);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .admin-header {
+      background: linear-gradient(135deg, #1a365d 0%, #2d5a8c 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 0 0 1rem 1rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .admin-header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .admin-header p {
+      margin: 0.25rem 0 0 0;
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: relative;
+    }
+
+    .notification-wrapper {
+      position: relative;
+    }
+
+    .notification-btn {
+      position: relative;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    .notification-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: #ef4444;
+      color: white;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      line-height: 1;
+      border: 2px solid #1a365d;
+    }
+
+    .notification-badge.active {
+      display: flex;
+    }
+
+    .notification-panel {
+      position: absolute;
+      top: calc(100% + 0.75rem);
+      right: 0;
+      width: min(360px, calc(100vw - 2rem));
+      max-height: 420px;
+      overflow-y: auto;
+      background: white;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2);
+      display: none;
+      z-index: 1100;
+    }
+
+    .notification-panel.active {
+      display: block;
+    }
+
+    .notification-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .notification-panel-header h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .notification-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notification-empty,
+    .notification-item {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .notification-empty {
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    .notification-item {
+      width: 100%;
+      background: white;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .notification-item:hover {
+      background: #f8fafc;
+    }
+
+    .notification-item.unread {
+      background: #eff6ff;
+    }
+
+    .notification-message {
+      margin: 0 0 0.35rem 0;
+      color: var(--text-primary);
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .notification-time {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    #logoutBtn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    #logoutBtn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .admin-nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      padding: 1.5rem 2rem;
+      background: white;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .admin-nav-btn {
+      padding: 0.75rem;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: var(--transition);
+      font-size: 0.85rem;
+    }
+
+    .admin-nav-btn:hover {
+      border-color: #1a365d;
+      background: #f0f4f8;
+      color: #1a365d;
+    }
+
+    .admin-nav-btn.active {
+      border-color: #1a365d;
+      background: #1a365d;
+      color: white;
+    }
+
+    .admin-content {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .admin-section {
+      display: none;
+    }
+
+    .admin-section.active {
+      display: block;
+    }
+
+    .dashboard-tabs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .dashboard-tab {
+      padding: 1rem;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: var(--transition);
+      font-weight: 600;
+    }
+
+    .dashboard-tab:hover {
+      border-color: #0066cc;
+      background: #f0f7ff;
+    }
+
+    .dashboard-tab.active {
+      border-color: #0066cc;
+      background: #0066cc;
+      color: white;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 1.75rem;
+      border-radius: 8px;
+      border-left: 5px solid #0066cc;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .stat-card h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #666;
+    }
+
+    .stat-card .number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #0066cc;
+      margin: 0.5rem 0;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 1200px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card-section {
+      background: white;
+      padding: 1.75rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .card-section h3 {
+      margin: 0 0 1.5rem 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #f0f4f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .activity-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 0.25rem 0;
+      font-size: 0.95rem;
+      overflow-wrap: anywhere;
+    }
+
+    .activity-time {
+      font-size: 0.8rem;
+      color: #999;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: #fff8f0;
+      border-left: 4px solid #ff6b35;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .alert-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .alert-icon {
+      font-size: 1.5rem;
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-weight: 600;
+      color: #d97706;
+      margin: 0 0 0.25rem 0;
+      font-size: 0.95rem;
+    }
+
+    .alert-count {
+      font-weight: 700;
+      color: #ff6b35;
+      text-align: center;
+    }
+
+    .stat-card h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card .number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #0066cc;
+      margin: 0.5rem 0;
+    }
+
+    .stat-card p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .admin-table {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+      overflow-y: hidden;
+      width: 100%;
+    }
+
+    .admin-table-header {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-bottom: 2px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(var(--table-columns, 5), minmax(96px, 1fr));
+      gap: 1rem;
+      font-weight: 700;
+      color: #1a365d;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: var(--table-min-width, 560px);
+    }
+
+    .admin-table-row {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(var(--table-columns, 5), minmax(96px, 1fr));
+      gap: 1rem;
+      align-items: center;
+      color: var(--text-primary);
+      transition: var(--transition);
+      min-width: var(--table-min-width, 560px);
+    }
+
+    .admin-table-header > div,
+    .admin-table-row > div {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .admin-table.users-table {
+      --table-columns: 6;
+      --table-min-width: 720px;
+    }
+
+    .admin-table.consultations-table {
+      --table-columns: 5;
+      --table-min-width: 620px;
+    }
+
+    .admin-table.emr-table,
+    .admin-table.qr-table,
+    .admin-table.audit-table {
+      --table-columns: 5;
+      --table-min-width: 680px;
+    }
+
+    .admin-table.permissions-table,
+    .admin-table.password-reset-table {
+      --table-columns: 5;
+      --table-min-width: 640px;
+    }
+
+    .admin-table-row:hover {
+      background: #f8f9fa;
+    }
+
+    .action-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+
+    .action-btn.view {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .action-btn.view:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .action-btn.edit {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .action-btn.edit:hover {
+      background: #1976d2;
+      color: white;
+    }
+
+    .action-btn.delete {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .action-btn.delete:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .action-btn.disable {
+      background: #fff3cd;
+      color: #b8860b;
+    }
+
+    .action-btn.disable:hover {
+      background: #b8860b;
+      color: white;
+    }
+
+    .metric-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border-left: 4px solid #0066cc;
+    }
+
+    .metric-card h4 {
+      margin: 0 0 1rem 0;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+    }
+
+    .metric-bar {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    .metric-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0066cc, #0052a3);
+      border-radius: 4px;
+    }
+
+    .metric-value {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .audit-log {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border-left: 4px solid #2ecc71;
+      margin-bottom: 1rem;
+    }
+
+    .audit-log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .audit-log-action {
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .audit-log-user {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .audit-log-time {
+      color: #a0aec0;
+      font-size: 0.85rem;
+    }
+
+    .audit-log-detail {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+
+    .filter-group {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .filter-field label {
+      display: block;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .filter-field input,
+    .filter-field select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .chart-placeholder {
+      background: white;
+      padding: 2rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      text-align: center;
+      color: var(--text-secondary);
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.35rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-active {
+      background: var(--success-light);
+      color: #1e7e34;
+    }
+
+    .status-inactive {
+      background: #f0f0f0;
+      color: #636e72;
+    }
+
+    .status-pending {
+      background: var(--warning-light);
+      color: #b8860b;
+    }
+
+    .btn-export {
+      background: linear-gradient(135deg, #0066cc, #0052a3);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .btn-export:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+    }
+
+    .report-output {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .report-output-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .report-output-header h3 {
+      margin: 0 0 0.35rem 0;
+      color: var(--text-primary);
+    }
+
+    .report-output-header p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .report-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .report-kpi {
+      border: 1px solid var(--border);
+      border-left: 4px solid #0066cc;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #f8fbff;
+    }
+
+    .report-kpi span {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+    }
+
+    .report-kpi strong {
+      display: block;
+      color: var(--text-primary);
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .report-section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .report-panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .report-panel h4 {
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: #f0f4f8;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .report-table th,
+    .report-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .report-table th {
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      background: #fafafa;
+    }
+
+    .report-empty {
+      text-align: center;
+      color: #999;
+      padding: 2rem;
+    }
+
+    .kpi-report {
+      background: #fff;
+      color: #243746;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .kpi-report-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .kpi-report-title h3 {
+      margin: 0;
+      color: #243746;
+      font-size: clamp(1.25rem, 2vw, 1.8rem);
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    .kpi-badge {
+      background: #00475f;
+      color: #fff;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .kpi-dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.95fr) minmax(170px, 0.95fr) minmax(300px, 2fr);
+      grid-auto-rows: minmax(210px, auto);
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+
+    .kpi-card {
+      min-width: 0;
+      background: #fff;
+      border: 1px solid #eef2f5;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+
+    .kpi-card h4 {
+      margin: 0;
+      padding: 0.75rem 0.85rem 0.2rem;
+      color: #627180;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .kpi-card-value {
+      color: #263a48;
+      font-size: clamp(1.8rem, 3vw, 2.2rem);
+      font-weight: 500;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .kpi-chart {
+      width: 100%;
+      height: 132px;
+      display: block;
+    }
+
+    .kpi-chart text {
+      font-size: 9px;
+      fill: #7b8794;
+    }
+
+    .kpi-chart-grid {
+      stroke: #dfe7ed;
+      stroke-width: 1;
+    }
+
+    .kpi-area-fill {
+      fill: rgba(0, 71, 95, 0.26);
+    }
+
+    .kpi-area-line,
+    .kpi-trend-line {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .kpi-bar {
+      fill: #00475f;
+    }
+
+    .kpi-donut-card {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.9fr) minmax(190px, 1.1fr);
+      align-items: center;
+      gap: 0.5rem;
+      padding-right: 0.8rem;
+    }
+
+    .kpi-donut-card h4 {
+      grid-column: 1 / -1;
+    }
+
+    .kpi-donut-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 146px;
+    }
+
+    .kpi-donut {
+      width: min(145px, 70%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: conic-gradient(var(--segments, #00475f 0 100%));
+      position: relative;
+    }
+
+    .kpi-donut::after {
+      content: "";
+      position: absolute;
+      inset: 28%;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .kpi-legend {
+      display: grid;
+      gap: 0.35rem;
+      padding: 0.25rem 0 0.65rem;
+      font-size: 0.82rem;
+    }
+
+    .kpi-legend-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.45rem;
+      align-items: center;
+      color: #425466;
+    }
+
+    .kpi-legend-row strong {
+      color: #263a48;
+    }
+
+    .kpi-dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      display: inline-block;
+      background: #00475f;
+    }
+
+    .kpi-number-card {
+      background: #00475f;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0.85rem;
+      min-height: 220px;
+    }
+
+    .kpi-number-card h4 {
+      color: #c9edf5;
+      padding: 0;
+    }
+
+    .kpi-simple-number {
+      color: #fff;
+      font-size: clamp(4.2rem, 13vw, 7.3rem);
+      font-weight: 300;
+      line-height: 0.85;
+      letter-spacing: 0;
+    }
+
+    .kpi-trend-card {
+      grid-column: span 2;
+      min-height: 220px;
+    }
+
+    .kpi-trend-card .kpi-chart {
+      height: 170px;
+    }
+
+    .kpi-trend-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0 0.85rem;
+      color: #6b7785;
+      font-size: 0.78rem;
+    }
+
+    .kpi-trend-legend span::before {
+      content: "";
+      display: inline-block;
+      width: 0.55rem;
+      height: 0.55rem;
+      margin-right: 0.35rem;
+      border-radius: 50%;
+      background: currentColor;
+      vertical-align: middle;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.2s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      max-width: 500px;
+      width: 90%;
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .qr-display {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .qr-display img {
+      max-width: 300px;
+      border: 2px solid #f0f0f0;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #fafafa;
+    }
+
+    .qr-details {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .qr-details-item {
+      margin-bottom: 1rem;
+    }
+
+    .qr-details-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .qr-details-label {
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 0.3rem;
+    }
+
+    .qr-details-value {
+      color: var(--text-primary);
+      word-break: break-all;
+      font-size: 0.9rem;
+      font-family: monospace;
+      background: white;
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .btn-copy {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .btn-copy:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-close {
+      background: #f0f0f0;
+      color: var(--text-primary);
+    }
+
+    .btn-close:hover {
+      background: #e0e0e0;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: #999;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+
+    .container {
+      max-width: 100%;
+      padding: 0;
+      margin: 0;
+    }
+
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      margin: 0 0 1.5rem 0;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 200px;
+      }
+
+      .main-wrapper {
+        margin-left: 200px;
+        width: calc(100% - 200px);
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .kpi-dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .kpi-donut-card,
+      .kpi-trend-card {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -220px;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+      }
+
+      .sidebar.active {
+        left: 0;
+      }
+
+      .main-wrapper {
+        margin-left: 0;
+        width: 100%;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .card-section {
+        padding: 1.25rem;
+      }
+
+      .admin-header {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 1rem;
+        text-align: left;
+      }
+
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .header-content {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .admin-header h1 {
+        font-size: 1.4rem;
+      }
+
+      .admin-header-buttons {
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .kpi-dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-donut-card,
+      .kpi-trend-card {
+        grid-column: auto;
+      }
+
+      .kpi-donut-card {
+        grid-template-columns: 1fr;
+        padding-right: 0;
+      }
+
+      .kpi-report-title {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-table {
+        font-size: 0.85rem;
+      }
+
+      .admin-table-header > div,
+      .admin-table-row > div {
+        padding: 0.5rem;
+      }
+    }
+
+    /* Animations */
+    @keyframes slideInLeft {
+      from {
+        transform: translateX(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .sidebar-nav-item {
+      animation: slideInLeft 0.3s ease;
+    }
+
+    .stat-card {
+      animation: slideInLeft 0.4s ease;
+    }
+
+    /* Scrollbar styling */
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .admin-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .admin-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .admin-content::-webkit-scrollbar-thumb {
+      background: #ddd;
+      border-radius: 4px;
+    }
+
+    .admin-content::-webkit-scrollbar-thumb:hover {
+      background: #999;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        display: block;
+        overflow-x: hidden;
+      }
+
+      .sidebar {
+        position: sticky;
+        left: auto;
+        top: 0;
+        width: 100%;
+        height: auto;
+        transform: none;
+        padding: 0.85rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        z-index: 300;
+      }
+
+      .sidebar-header {
+        padding: 0 0 0.65rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .sidebar-header h2 {
+        font-size: 1rem;
+      }
+
+      .sidebar-nav {
+        flex-direction: row;
+        gap: 0.5rem;
+        padding: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .sidebar-nav-item {
+        flex: 0 0 auto;
+        min-height: 42px;
+        white-space: nowrap;
+        font-size: 0.82rem;
+      }
+
+      .sidebar-nav-item.active {
+        border-left: 0;
+        border-bottom: 4px solid #ffd700;
+      }
+
+      .main-wrapper {
+        margin-left: 0;
+        width: 100%;
+        min-width: 0;
+      }
+
+      .admin-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0 0 0.75rem 0.75rem;
+      }
+
+      .admin-header h1 {
+        font-size: 1.35rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .header-left {
+        align-items: flex-start;
+      }
+
+      .header-actions,
+      .user-info,
+      .report-output-header,
+      .audit-log-header,
+      .modal-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .admin-content {
+        padding: 0.75rem;
+        overflow-x: hidden;
+      }
+
+      .admin-nav,
+      .dashboard-tabs,
+      .stats-grid,
+      .dashboard-grid,
+      .filter-group,
+      .report-kpi-grid,
+      .report-section-grid {
+        grid-template-columns: 1fr;
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      .card,
+      .card-section,
+      .stat-card,
+      .metric-card,
+      .audit-log,
+      .filter-group,
+      .chart-placeholder,
+      .report-output,
+      .modal-content {
+        padding: 1rem;
+      }
+
+      .admin-table,
+      .report-panel {
+        overflow-x: auto;
+      }
+
+      .admin-table-header,
+      .admin-table-row {
+        grid-template-columns: minmax(160px, 1fr);
+        gap: 0.5rem;
+      }
+
+      .report-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      .qr-display img {
+        max-width: 100%;
+      }
+
+      .action-btn,
+      .btn-export,
+      button.primary {
+        width: 100%;
+        min-height: 44px;
+      }
+    }
+  </style>
+  <script src="api-config.js"></script>
+  <script src="password-toggle.js" defer></script>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>EMR Admin</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-nav-item active" data-target="dashboard">Dashboard</button>
+      <button class="sidebar-nav-item" data-target="users">User Management</button>
+      <button class="sidebar-nav-item" data-target="consultations">Consultations</button>
+      <button class="sidebar-nav-item" data-target="emr">EMR Management</button>
+      <button class="sidebar-nav-item" data-target="access-control">Access Control</button>
+      <button class="sidebar-nav-item" data-target="password-resets">
+        <span>Password Resets</span>
+        <span id="passwordResetSidebarBadge" class="sidebar-badge">0</span>
+      </button>
+      <button class="sidebar-nav-item" data-target="audit-logs">Audit Logs</button>
+      <button class="sidebar-nav-item" data-target="reports">Reports</button>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+    <div class="admin-header">
+      <div class="header-left">
+        <div class="header-avatar">A</div>
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p>System Management & Monitoring</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="notification-wrapper">
+          <button id="adminNotificationsBtn" class="notification-btn" type="button" aria-expanded="false">
+            Notifications
+            <span id="adminNotificationBadge" class="notification-badge">0</span>
+          </button>
+          <div id="adminNotificationPanel" class="notification-panel" aria-label="Admin notifications">
+            <div class="notification-panel-header">
+              <h3>Notifications</h3>
+              <button id="refreshNotificationsBtn" class="action-btn view" type="button">Refresh</button>
+            </div>
+            <div id="adminNotificationList" class="notification-list">
+              <div class="notification-empty">Loading notifications...</div>
+            </div>
+          </div>
+        </div>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <div class="admin-content">
+      <!-- Dashboard Overview -->
+      <section id="dashboard" class="admin-section active">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>Total Users</h3>
+            <div class="number" id="statTotalUsers">0</div>
+            <p>Registered in system</p>
+          </div>
+          <div class="stat-card">
+            <h3>Active Doctors</h3>
+            <div class="number" id="statActiveDoctors">0</div>
+            <p>Active medical professionals</p>
+          </div>
+          <div class="stat-card">
+            <h3>Pending Consultations</h3>
+            <div class="number" id="statPendingConsultations">0</div>
+            <p>Awaiting assignment</p>
+          </div>
+          <div class="stat-card" style="border-left-color: #2ecc71;">
+            <h3>Protected EMRs</h3>
+            <div class="number" style="color: #2ecc71;" id="statProtectedEmrs">0</div>
+            <p>CP-ABE encrypted records</p>
+          </div>
+        </div>
+
+        <!-- Recent Consultations -->
+        <div class="dashboard-grid">
+          <div class="card-section">
+            <h3>Recent Consultations</h3>
+            <div id="recentConsultations">
+              <p style="color: var(--text-secondary); text-align: center;">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- User Management -->
+      <section id="users" class="admin-section">
+        <div class="card">
+          <h2>👥 User Management</h2>
+          
+          <div class="card-section" style="margin-bottom: 1.5rem;">
+            <h3>Add User</h3>
+            <form id="adminAddUserForm">
+              <div class="filter-group" style="box-shadow: none; padding: 0; margin-bottom: 1rem;">
+                <div class="filter-field">
+                  <label>Role</label>
+                  <select id="addUserRole" required>
+                    <option value="staff">Staff</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="patient">Patient</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div class="filter-field">
+                  <label>Email</label>
+                  <input id="addUserEmail" type="email" placeholder="user@example.com" required />
+                </div>
+                <div class="filter-field">
+                  <label>Password</label>
+                  <input id="addUserPassword" type="password" placeholder="Temporary password" required minlength="6" data-password-toggle />
+                </div>
+                <div class="filter-field">
+                  <label>Display Name</label>
+                  <input id="addUserDisplayName" type="text" placeholder="Full name" required />
+                </div>
+                <div class="filter-field role-extra" data-role-extra="doctor" style="display:none;">
+                  <label>License Number</label>
+                  <input id="addDoctorLicense" type="text" placeholder="PRC license number" />
+                </div>
+                <div class="filter-field role-extra" data-role-extra="staff">
+                  <label>Staff Position</label>
+                  <input id="addStaffPosition" type="text" placeholder="Nurse, receptionist, etc." />
+                </div>
+              </div>
+
+              <div id="addPatientFields" class="filter-group" style="display:none; box-shadow: none; padding: 0; margin-bottom: 1rem;">
+                <div class="filter-field">
+                  <label>First Name</label>
+                  <input id="addPatientFirstName" type="text" />
+                </div>
+                <div class="filter-field">
+                  <label>Middle Name</label>
+                  <input id="addPatientMiddleName" type="text" />
+                </div>
+                <div class="filter-field">
+                  <label>Last Name</label>
+                  <input id="addPatientLastName" type="text" />
+                </div>
+                <div class="filter-field">
+                  <label>Mobile</label>
+                  <input id="addPatientMobile" type="text" inputmode="numeric" pattern="[0-9]*" />
+                </div>
+                <div class="filter-field">
+                  <label>Date of Birth</label>
+                  <input id="addPatientDob" type="date" />
+                </div>
+                <div class="filter-field">
+                  <label>Age</label>
+                  <input id="addPatientAge" type="number" min="0" disabled />
+                </div>
+                <div class="filter-field">
+                  <label>Sex</label>
+                  <select id="addPatientSex">
+                    <option value="">Select sex</option>
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                  </select>
+                </div>
+                <div class="filter-field">
+                  <label>Civil Status</label>
+                  <input id="addPatientCivilStatus" type="text" />
+                </div>
+                <div class="filter-field">
+                  <label>Address</label>
+                  <input id="addPatientAddress" type="text" />
+                </div>
+              </div>
+
+              <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                <button type="submit" class="btn-export">Add User</button>
+                <span id="addUserHint" style="color:#64748b; font-size:0.9rem;"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-field">
+              <label>Search User</label>
+              <input id="userSearchInput" type="text" placeholder="Name, email, or ID..." />
+            </div>
+            <div class="filter-field">
+              <label>Role Filter</label>
+              <select id="roleFilter">
+                <option value="">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="doctor">Doctor</option>
+                <option value="patient">Patient</option>
+                <option value="staff">Staff</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <label>Status Filter</label>
+              <select id="statusFilter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-table users-table">
+            <div class="admin-table-header">
+              <div>User ID</div>
+              <div>Name</div>
+              <div>Email</div>
+              <div>Role</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+            <div id="usersTableBody"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Consultation Monitoring -->
+      <section id="consultations" class="admin-section">
+        <div class="card">
+          <h2>📋 Consultation Monitoring</h2>
+          
+          <div class="filter-group">
+            <div class="filter-field">
+              <label>Status Filter</label>
+              <select id="consultationStatusFilter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="denied">Denied</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <label>Consultation Date</label>
+              <input type="date" id="consultationDateFilter" />
+            </div>
+          </div>
+
+          <div class="admin-table consultations-table">
+            <div class="admin-table-header">
+              <div>Consultation ID</div>
+              <div>Patient</div>
+              <div>Doctor</div>
+              <div>Status</div>
+              <div>Date</div>
+            </div>
+            <div id="consultationsTableBody"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EMR Management -->
+      <section id="emr" class="admin-section">
+        <div class="card">
+          <h2>📑 EMR Records Management</h2>
+          
+          <div class="filter-group">
+            <div class="filter-field">
+              <label>Search Patient</label>
+              <input type="text" id="emrPatientSearchInput" placeholder="Patient name or ID..." />
+            </div>
+          </div>
+
+          <div class="admin-table emr-table">
+            <div class="admin-table-header">
+              <div>Record ID</div>
+              <div>Patient Name</div>
+              <div>Type</div>
+              <div>Created Date</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+            <div id="emrTableBody"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- QR Code Management -->
+      <section id="qr" class="admin-section">
+        <div class="card">
+          <h2>📲 QR Code Management</h2>
+          <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Generate QR codes for patient registration. Each code is valid for 1 hour.</p>
+          
+          <button id="generateQRBtn" class="primary" style="padding: 0.75rem 1.5rem; margin-bottom: 2rem;">🔄 Generate New QR Code</button>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="stat-card">
+              <h3>Total QR Codes</h3>
+              <div class="number" id="statTotalQRCodes">0</div>
+              <p>Generated codes</p>
+            </div>
+            <div class="stat-card">
+              <h3>Active Codes</h3>
+              <div class="number" id="statActiveQRCodes">0</div>
+              <p>Currently valid</p>
+            </div>
+            <div class="stat-card">
+              <h3>Expired Codes</h3>
+              <div class="number" id="statExpiredQRCodes">0</div>
+              <p>Expired/Revoked</p>
+            </div>
+            <div class="stat-card">
+              <h3>Scan Success Rate</h3>
+              <div class="number">—</div>
+              <p>N/A</p>
+            </div>
+          </div>
+
+          <div class="admin-table qr-table">
+            <div class="admin-table-header">
+              <div>QR Code ID</div>
+              <div>Generated By</div>
+              <div>Created Date</div>
+              <div>Status</div>
+              <div>Expires</div>
+              <div>Actions</div>
+            </div>
+            <div id="qrTableBody"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Access Control -->
+      <section id="access-control" class="admin-section">
+        <div class="card">
+          <h2>🔐 Access Control Settings</h2>
+          
+          <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow);">
+            <h3>Role-Based Access Configuration</h3>
+            <p style="color: #666; margin-bottom: 1.5rem;">Manage system access permissions for different user roles.</p>
+            
+            <div style="display: grid; gap: 1.5rem;">
+              <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #0066cc;">
+                <h4 style="margin: 0 0 0.5rem 0;">👨‍⚕️ Doctor Access</h4>
+                <p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem;">Can view patient consultations and encrypted EMRs with CP-ABE policies</p>
+                <div style="display: flex; gap: 1rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> View own consultations
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> Access assigned patient EMRs
+                  </label>
+                </div>
+              </div>
+
+              <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #2ecc71;">
+                <h4 style="margin: 0 0 0.5rem 0;">🩺 Patient Access</h4>
+                <p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem;">Can access own medical records and consultations (encrypted)</p>
+                <div style="display: flex; gap: 1rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> View own records
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> Request consultations
+                  </label>
+                </div>
+              </div>
+
+              <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ff6b35;">
+                <h4 style="margin: 0 0 0.5rem 0;">🛡️ Admin Access</h4>
+                <p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem;">Full system management - EMR data is protected by CP-ABE encryption</p>
+                <div style="display: flex; gap: 1rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> User management
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> System monitoring
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> Access logs
+                  </label>
+                </div>
+              </div>
+
+              <div style="padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #845ef7;">
+                <h4 style="margin: 0 0 0.5rem 0;">Staff Access</h4>
+                <p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem;">Can help the clinic manage schedules, consultation queues, and patient registration invites.</p>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> View consultation queue
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> Set consultation schedules
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" checked disabled /> Generate patient invites
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <h3 style="margin-top: 2rem;">Current User Permissions</h3>
+            <p style="color: #666; margin-bottom: 1rem;">This section is clickable from the sidebar and shows live access rules per user role.</p>
+            <div class="admin-table permissions-table">
+              <div class="admin-table-header">
+                <div>User</div>
+                <div>Role</div>
+                <div>Access Area</div>
+                <div>Permission</div>
+                <div>Assigned</div>
+              </div>
+              <div id="accessPermissionsBody"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Password Reset Requests -->
+      <section id="password-resets" class="admin-section">
+        <div class="card">
+          <h2>Password Reset Requests</h2>
+          <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Users who forgot their password appear here. Set a temporary password and share it with the user.</p>
+
+          <div class="filter-group">
+            <div class="filter-field">
+              <label>Status</label>
+              <select id="passwordResetStatusFilter">
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-table password-reset-table">
+            <div class="admin-table-header">
+              <div>Request ID</div>
+              <div>User</div>
+              <div>Email</div>
+              <div>Role</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+            <div id="passwordResetTableBody"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Audit Logs -->
+      <section id="audit-logs" class="admin-section">
+        <div class="card">
+          <h2>Login Activity</h2>
+          <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">See who signed in recently and who is likely online. Users are treated as online for 15 minutes after their last successful login.</p>
+          
+          <div class="filter-group">
+            <div class="filter-field">
+              <label>User Role</label>
+              <select id="auditRoleFilter">
+                <option value="">All Users</option>
+                <option value="admin">Admin</option>
+                <option value="doctor">Doctor</option>
+                <option value="staff">Staff</option>
+                <option value="patient">Patient</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <label>Login Date</label>
+              <input type="date" id="auditDateFilter" />
+            </div>
+          </div>
+
+          <div class="admin-table audit-table">
+            <div class="admin-table-header">
+              <div>User</div>
+              <div>Role</div>
+              <div>Last Login</div>
+              <div>Status</div>
+              <div>Message</div>
+            </div>
+            <div id="auditLogsBody" style="margin-top: 1rem;">
+              <div class="admin-table-row" style="justify-content: center; padding: 2rem;">
+                <span style="color: #999;">No audit logs available</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reports -->
+      <section id="reports" class="admin-section">
+        <div class="card">
+          <h2>📊 Reports & Analytics</h2>
+          
+          <div class="report-filter-bar">
+            <div class="field">
+              <label for="reportSearch">Search</label>
+              <input type="search" id="reportSearch" placeholder="Patient, doctor, status, transaction ID" />
+            </div>
+            <div class="field">
+              <label for="reportStartDate">Start Date</label>
+              <input type="date" id="reportStartDate" />
+            </div>
+            <div class="field">
+              <label for="reportEndDate">End Date</label>
+              <input type="date" id="reportEndDate" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            <button class="btn-export" data-report-type="system">Generate Admin Report</button>
+            <button class="btn-export" data-report-type="consultations">View/Print All Transactions</button>
+            <button class="btn-export" data-report-type="patient-history">Patient History Report</button>
+          </div>
+
+          <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow);">
+            <h3 style="margin: 0 0 1.5rem 0;">Recent Reports</h3>
+            <div id="recentReportsContent" style="text-align: center; color: #999; padding: 2rem;">
+              <p>No reports generated yet. Generate your first report using the buttons above.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+    </div>
+
+    <!-- QR Code View Modal -->
+    <div id="qrModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>📲 QR Code Details</h3>
+          <button class="modal-close" onclick="closeQRModal()">&times;</button>
+        </div>
+        
+        <div class="qr-display">
+          <img id="qrImage" src="" alt="QR Code" />
+        </div>
+
+        <div class="qr-details">
+          <div class="qr-details-item">
+            <div class="qr-details-label">Registration Link</div>
+            <div class="qr-details-value" id="qrLink"></div>
+          </div>
+          <div class="qr-details-item">
+            <div class="qr-details-label">Expires At</div>
+            <div class="qr-details-value" id="qrExpiry"></div>
+          </div>
+          <div class="qr-details-item">
+            <div class="qr-details-label">Time Remaining</div>
+            <div class="qr-details-value" id="qrTimeRemaining"></div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-copy" onclick="copyQRLink()">📋 Copy Link</button>
+          <button class="btn-copy" onclick="downloadQRCode()">⬇️ Download QR</button>
+          <button class="btn-close" onclick="closeQRModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code Generation Modal -->
+    <div id="qrGenerateModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>✅ QR Code Generated!</h3>
+          <button class="modal-close" onclick="closeGenerateModal()">&times;</button>
+        </div>
+        
+        <div class="qr-display">
+          <img id="generatedQRImage" src="" alt="QR Code" />
+        </div>
+
+        <div class="qr-details">
+          <div class="qr-details-item">
+            <div class="qr-details-label">Registration Link</div>
+            <div class="qr-details-value" id="generatedQRLink"></div>
+          </div>
+          <div class="qr-details-item">
+            <div class="qr-details-label">Valid Until</div>
+            <div class="qr-details-value" id="generatedQRExpiry"></div>
+          </div>
+          <div class="qr-details-item">
+            <div class="qr-details-label">Instructions</div>
+            <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Share this QR code or link with patients to allow them to register.</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-copy" onclick="copyGeneratedQRLink()">📋 Copy Link</button>
+          <button class="btn-copy" onclick="downloadGeneratedQRCode()">⬇️ Download QR</button>
+          <button class="btn-close" onclick="closeGenerateModal()">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p><strong>EMR Admin System</strong> | Complete System Management & Monitoring | Healthcare Data Management</p>
+    </footer>
+  </main>
+
+  <script>
+    const API_BASE_URL = window.PROFELECT_API_BASE_URL;
+    const authUser = JSON.parse(localStorage.getItem('authUser') || 'null');
+
+    if (!authUser || !authUser.id || authUser.role !== 'admin') {
+      alert('Access denied. Please log in as an admin.');
+      window.location.href = 'login.html';
+    }
+
+    const navBtns = document.querySelectorAll('.admin-nav-btn');
+    const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
+    const sections = document.querySelectorAll('.admin-section');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const adminNotificationsBtn = document.getElementById('adminNotificationsBtn');
+    const adminNotificationBadge = document.getElementById('adminNotificationBadge');
+    const adminNotificationPanel = document.getElementById('adminNotificationPanel');
+    const adminNotificationList = document.getElementById('adminNotificationList');
+    const refreshNotificationsBtn = document.getElementById('refreshNotificationsBtn');
+    const passwordResetSidebarBadge = document.getElementById('passwordResetSidebarBadge');
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[char]));
+    }
+
+    function switchSection(target) {
+      sections.forEach(sec => sec.classList.remove('active'));
+      navBtns.forEach(btn => btn.classList.remove('active'));
+      sidebarItems.forEach(item => item.classList.remove('active'));
+
+      document.getElementById(target).classList.add('active');
+      document.querySelector(`.admin-nav-btn[data-target="${target}"]`)?.classList.add('active');
+      document.querySelector(`.sidebar-nav-item[data-target="${target}"]`)?.classList.add('active');
+
+      if (target === 'users') {
+        loadUsers();
+      } else if (target === 'emr') {
+        loadEMRRecords();
+      } else if (target === 'consultations') {
+        loadConsultations();
+      } else if (target === 'qr') {
+        loadQRCodes();
+      } else if (target === 'access-control') {
+        loadAccessPermissions();
+      } else if (target === 'password-resets') {
+        loadPasswordResetRequests();
+      } else if (target === 'audit-logs') {
+        loadAuditLogs();
+      } else if (target === 'reports') {
+        // Handle reports
+      }
+    }
+
+    async function loadAdminNotifications() {
+      if (!adminNotificationList || !adminNotificationBadge) return;
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/notifications?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to load notifications.');
+
+        const notifications = data.notifications || [];
+        const unreadCount = notifications.filter((item) => !Number(item.read)).length;
+        adminNotificationBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+        adminNotificationBadge.classList.toggle('active', unreadCount > 0);
+
+        if (!notifications.length) {
+          adminNotificationList.innerHTML = '<div class="notification-empty">No admin notifications yet.</div>';
+          return;
+        }
+
+        adminNotificationList.innerHTML = notifications.slice(0, 12).map((item) => {
+          const isUnread = !Number(item.read);
+          const createdAt = item.created_at ? new Date(item.created_at).toLocaleString() : '';
+          return `
+            <button class="notification-item ${isUnread ? 'unread' : ''}" type="button" data-notification-id="${item.id}" data-notification-type="${escapeHtml(item.type)}">
+              <p class="notification-message">${escapeHtml(item.message)}</p>
+              <span class="notification-time">${escapeHtml(createdAt)}</span>
+            </button>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.notification-item').forEach((item) => {
+          item.addEventListener('click', () => handleAdminNotificationClick(item));
+        });
+      } catch (err) {
+        console.error('Load admin notifications error', err);
+        adminNotificationList.innerHTML = `<div class="notification-empty">Failed to load notifications: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function refreshPasswordResetBadge() {
+      if (!passwordResetSidebarBadge) return;
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/password-reset-requests?userId=${authUser.id}&status=pending`);
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to load reset count.');
+
+        const pendingCount = data.requests?.length || 0;
+        passwordResetSidebarBadge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
+        passwordResetSidebarBadge.classList.toggle('active', pendingCount > 0);
+      } catch (err) {
+        console.error('Password reset badge error', err);
+      }
+    }
+
+    async function handleAdminNotificationClick(item) {
+      const notificationId = item.dataset.notificationId;
+      const notificationType = item.dataset.notificationType;
+
+      try {
+        await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, { method: 'POST' });
+      } catch (err) {
+        console.error('Mark notification read error', err);
+      }
+
+      if (notificationType === 'password-reset') {
+        adminNotificationPanel?.classList.remove('active');
+        adminNotificationsBtn?.setAttribute('aria-expanded', 'false');
+        switchSection('password-resets');
+      }
+
+      await loadAdminNotifications();
+    }
+
+    async function loadAdminStats() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/stats?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch stats');
+
+        document.getElementById('statTotalUsers').textContent = data.stats.totalUsers.toLocaleString();
+        document.getElementById('statActiveDoctors').textContent = (data.stats.activeDoctors || 0).toLocaleString();
+        document.getElementById('statPendingConsultations').textContent = data.stats.activeConsultations?.toLocaleString() || '0';
+        document.getElementById('statProtectedEmrs').textContent = data.stats.emrRecords?.toLocaleString() || '0';
+
+        await loadRecentConsultations();
+        await loadEMRActivity();
+      } catch (err) {
+        console.error('Failed to load admin stats', err);
+      }
+    }
+
+    async function loadRecentConsultations() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/consultations?userId=${authUser.id}&limit=5`);
+        const data = await resp.json();
+        
+        if (!data.consultations || data.consultations.length === 0) {
+          document.getElementById('recentConsultations').innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No recent consultations</p>';
+          return;
+        }
+
+        const html = data.consultations.map(c => {
+          const statusClass = c.status === 'pending' ? 'status-pending' : 'status-active';
+          const icon = c.status === 'pending' ? '🟠' : '🟢';
+          return `
+            <div class="activity-item">
+              <div class="activity-icon">${icon}</div>
+              <div class="activity-content">
+                <p class="activity-title">${c.patient_name} - ${c.concerns?.substring(0, 40) || 'Consultation'}...</p>
+                <p class="activity-time">${new Date(c.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('recentConsultations').innerHTML = html;
+      } catch (err) {
+        console.error('Failed to load recent consultations', err);
+      }
+    }
+
+    async function loadEMRActivity() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/stats?userId=${authUser.id}`);
+        const data = await resp.json();
+        
+        const activities = [
+          { icon: '📄', title: 'Record Updated', desc: `Patient123 | ${new Date().toLocaleString()}` },
+          { icon: '✨', title: 'New EMR Added', desc: `doc.jeric | ${new Date().toLocaleString()}` },
+          { icon: '🔐', title: 'CP-ABE Encrypted', desc: `Assessment processed | ${new Date().toLocaleString()}` }
+        ];
+
+        const html = activities.map(a => `
+          <div class="activity-item">
+            <div class="activity-icon">${a.icon}</div>
+            <div class="activity-content">
+              <p class="activity-title">${a.title}</p>
+              <p class="activity-time">${a.desc}</p>
+            </div>
+          </div>
+        `).join('');
+
+        document.getElementById('emrActivity').innerHTML = html;
+      } catch (err) {
+        console.error('Failed to load EMR activity', err);
+      }
+    }
+
+    async function loadAccessPermissions() {
+      const table = document.getElementById('accessPermissionsBody');
+      if (!table) return;
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading permissions...</div>';
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/access-permissions?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch permissions');
+
+        if (!data.permissions || data.permissions.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No permissions found.</div>';
+          return;
+        }
+
+        table.innerHTML = data.permissions.map(permission => `
+          <div class="admin-table-row">
+            <div>${permission.display_name || `User #${permission.id}`}</div>
+            <div>${permission.role}</div>
+            <div>${permission.resource_type}</div>
+            <div>${permission.permission_level}</div>
+            <div>${new Date(permission.assigned_date).toLocaleDateString()}</div>
+          </div>
+        `).join('');
+      } catch (err) {
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load permissions: ${err.message}</div>`;
+      }
+    }
+
+    async function loadAuditLogs() {
+      const table = document.getElementById('auditLogsBody');
+      if (!table) return;
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading audit logs...</div>';
+
+      const query = new URLSearchParams({
+        userId: authUser.id,
+        ...(auditRoleFilter?.value ? { role: auditRoleFilter.value } : {}),
+        ...(auditDateFilter?.value ? { date: auditDateFilter.value } : {}),
+      });
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/audit-logs?${query.toString()}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch audit logs');
+
+        if (!data.logs || data.logs.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No audit logs found.</div>';
+          return;
+        }
+
+        const latestByUser = new Map();
+        data.logs.forEach(log => {
+          const key = log.user_id || log.email || log.details;
+          if (!latestByUser.has(key)) latestByUser.set(key, log);
+        });
+
+        table.innerHTML = Array.from(latestByUser.values()).map(log => {
+          const lastLogin = new Date(log.created_at);
+          const minutesAgo = (Date.now() - lastLogin.getTime()) / 60000;
+          const isOnline = log.status === 'success' && minutesAgo <= 15;
+          const label = log.status === 'blocked'
+            ? 'Deactivated'
+            : log.status === 'failed'
+              ? 'Failed'
+              : isOnline
+                ? 'Online'
+                : 'Offline';
+          const statusClass = isOnline ? 'status-active' : 'status-inactive';
+
+          return `
+            <div class="admin-table-row">
+              <div>${log.display_name || log.email || 'Unknown user'}</div>
+              <div>${log.user_role || 'unknown'}</div>
+              <div>${lastLogin.toLocaleString()}</div>
+              <div><span class="status-badge ${statusClass}">${label}</span></div>
+              <div>${log.details || ''}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        if (auditDateFilter?.value) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No login activity found for the selected date.</div>';
+        } else {
+          table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load login activity: ${err.message}</div>`;
+        }
+      }
+    }
+
+    const userSearchInput = document.getElementById('userSearchInput');
+    const roleFilter = document.getElementById('roleFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const auditRoleFilter = document.getElementById('auditRoleFilter');
+    const auditDateFilter = document.getElementById('auditDateFilter');
+    const consultationStatusFilter = document.getElementById('consultationStatusFilter');
+    const consultationDateFilter = document.getElementById('consultationDateFilter');
+    const emrPatientSearchInput = document.getElementById('emrPatientSearchInput');
+    const passwordResetStatusFilter = document.getElementById('passwordResetStatusFilter');
+    const adminAddUserForm = document.getElementById('adminAddUserForm');
+    const reportButtons = document.querySelectorAll('[data-report-type]');
+    const recentReportsContent = document.getElementById('recentReportsContent');
+    const reportSearch = document.getElementById('reportSearch');
+    const reportStartDate = document.getElementById('reportStartDate');
+    const reportEndDate = document.getElementById('reportEndDate');
+    const addUserRole = document.getElementById('addUserRole');
+    const addPatientFields = document.getElementById('addPatientFields');
+    const addUserHint = document.getElementById('addUserHint');
+    const addDoctorLicense = document.getElementById('addDoctorLicense');
+    const addStaffPosition = document.getElementById('addStaffPosition');
+    const addPatientRequiredFields = [
+      'addPatientFirstName',
+      'addPatientLastName',
+      'addPatientMobile',
+      'addPatientDob',
+      'addPatientAge',
+      'addPatientSex',
+      'addPatientCivilStatus',
+      'addPatientAddress',
+    ].map(id => document.getElementById(id));
+
+    function updateAddUserRoleFields() {
+      const role = addUserRole.value;
+      document.querySelectorAll('.role-extra').forEach(field => {
+        field.style.display = field.dataset.roleExtra === role ? '' : 'none';
+      });
+
+      addPatientFields.style.display = role === 'patient' ? '' : 'none';
+      addDoctorLicense.required = role === 'doctor';
+      addStaffPosition.required = role === 'staff';
+      addPatientRequiredFields.forEach(field => {
+        field.required = role === 'patient';
+      });
+
+      if (addUserHint) {
+        if (role === 'patient') {
+          addUserHint.textContent = 'Patient accounts need profile details for records.';
+        } else if (role === 'doctor') {
+          addUserHint.textContent = 'Doctor accounts require a license number.';
+        } else if (role === 'staff') {
+          addUserHint.textContent = 'Staff accounts require a position.';
+        } else {
+          addUserHint.textContent = 'Admin accounts can manage users and system records.';
+        }
+      }
+    }
+
+    function getInputValue(id) {
+      return document.getElementById(id)?.value.trim() || '';
+    }
+
+    function sanitizeNameInput(value) {
+      return String(value || '').replace(/[^\p{L}\s.'-]/gu, '');
+    }
+
+    function sanitizeNumericInput(value) {
+      return String(value || '').replace(/\D/g, '');
+    }
+
+    function bindInputSanitizer(id, sanitizer) {
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const cleanValue = sanitizer(input.value);
+        if (input.value !== cleanValue) input.value = cleanValue;
+      });
+    }
+
+    function calculateAgeFromDob(dob) {
+      if (!dob) return '';
+      const birth = new Date(`${dob}T00:00:00`);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      return Math.max(0, age);
+    }
+
+    function syncAddPatientAge(showMessage = true) {
+      const dobInput = document.getElementById('addPatientDob');
+      const ageInput = document.getElementById('addPatientAge');
+      if (!dobInput || !ageInput) return true;
+
+      const dob = dobInput.value;
+      if (!dob) {
+        ageInput.value = '';
+        return true;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (dob > today) {
+        dobInput.value = '';
+        ageInput.value = '';
+        if (showMessage) alert('Date of birth cannot be in the future.');
+        return false;
+      }
+
+      ageInput.value = calculateAgeFromDob(dob);
+      return true;
+    }
+
+    function getUserFilters() {
+      return {
+        search: userSearchInput.value.trim(),
+        role: roleFilter.value,
+        status: statusFilter.value,
+      };
+    }
+
+    async function createAdminUser(event) {
+      event.preventDefault();
+
+      const submitBtn = adminAddUserForm.querySelector('button[type="submit"]');
+      const role = addUserRole.value;
+      const payload = {
+        userId: authUser.id,
+        role,
+        email: getInputValue('addUserEmail'),
+        password: document.getElementById('addUserPassword').value,
+        displayName: getInputValue('addUserDisplayName'),
+      };
+
+      if (role === 'doctor') {
+        payload.license = getInputValue('addDoctorLicense');
+      }
+
+      if (role === 'staff') {
+        payload.position = getInputValue('addStaffPosition');
+      }
+
+      if (role === 'patient') {
+        if (!syncAddPatientAge()) {
+          return;
+        }
+
+        const emailPrefix = payload.email.split('@')[0] || payload.displayName.replace(/\s+/g, '').toLowerCase();
+        Object.assign(payload, {
+          username: emailPrefix,
+          firstName: getInputValue('addPatientFirstName'),
+          middleName: getInputValue('addPatientMiddleName'),
+          lastName: getInputValue('addPatientLastName'),
+          mobile: getInputValue('addPatientMobile'),
+          dateOfBirth: getInputValue('addPatientDob'),
+          age: getInputValue('addPatientAge'),
+          sex: getInputValue('addPatientSex'),
+          civilStatus: getInputValue('addPatientCivilStatus'),
+          address: getInputValue('addPatientAddress'),
+          securityQuestion: 'Created by admin',
+          securityAnswer: 'admin-created',
+        });
+      }
+
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding...';
+
+        const resp = await fetch(`${API_BASE_URL}/api/admin/users?userId=${authUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to add user.');
+
+        adminAddUserForm.reset();
+        addUserRole.value = 'staff';
+        updateAddUserRoleFields();
+        await loadUsers();
+        await loadAdminStats();
+        alert(`${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully.`);
+      } catch (err) {
+        console.error('Create user error', err);
+        alert('Failed to add user: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add User';
+      }
+    }
+
+    async function loadUsers() {
+      const table = document.getElementById('usersTableBody');
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading users…</div>';
+
+      const filters = getUserFilters();
+      const query = new URLSearchParams({
+        userId: authUser.id,
+        ...(filters.search ? { search: filters.search } : {}),
+        ...(filters.role ? { role: filters.role } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      });
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/users?${query.toString()}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch users');
+
+        if (!data.users || data.users.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No users found.</div>';
+          return;
+        }
+
+        table.innerHTML = data.users
+          .map(u => {
+            const statusClass = u.status === 'pending' ? 'status-pending' : u.status === 'inactive' ? 'status-inactive' : 'status-active';
+            const statusLabel = u.status ? u.status.toUpperCase() : 'ACTIVE';
+            const toggleLabel = u.status === 'inactive' ? 'Reactivate' : 'Deactivate';
+            const isAdminAccount = u.role === 'admin';
+            const actions = isAdminAccount
+              ? '<span style="color: var(--text-secondary); font-size: 0.85rem;">Protected admin</span>'
+              : u.status === 'pending'
+                ? `
+              <button class="action-btn view" data-action="view" data-user-id="${u.id}">View</button>
+              <button class="action-btn edit" data-action="approve" data-user-id="${u.id}">Approve</button>
+              <button class="action-btn delete" data-action="reject" data-user-id="${u.id}">Reject</button>
+              <button class="action-btn delete" data-action="delete" data-user-id="${u.id}">Delete</button>
+            `
+              : `
+              <button class="action-btn view" data-action="view" data-user-id="${u.id}">View</button>
+              <button class="action-btn edit" data-action="edit" data-user-id="${u.id}">Edit</button>
+              <button class="action-btn edit" data-action="toggle" data-user-id="${u.id}">${toggleLabel}</button>
+              <button class="action-btn delete" data-action="delete" data-user-id="${u.id}">Delete</button>
+            `;
+
+            return `
+          <div class="admin-table-row" data-user-id="${u.id}" data-user-status="${u.status}">
+            <div>#${u.id}</div>
+            <div>${u.display_name || '—'}</div>
+            <div>${u.email}</div>
+            <div>${u.role}</div>
+            <div><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              ${actions}
+            </div>
+          </div>
+        `;
+          })
+          .join('');
+
+        // Attach handlers once rows are built
+        document.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async (event) => {
+            const action = event.currentTarget.dataset.action;
+            const targetId = event.currentTarget.dataset.userId;
+
+            if (action === 'view') {
+              await viewUser(targetId);
+            }
+            if (action === 'edit') {
+              await editUser(targetId);
+            }
+            if (action === 'toggle') {
+              await toggleUserStatus(targetId);
+            }
+            if (action === 'approve') {
+              await updatePendingUserStatus(targetId, 'active');
+            }
+            if (action === 'reject') {
+              await updatePendingUserStatus(targetId, 'inactive');
+            }
+            if (action === 'delete') {
+              await deleteUser(targetId);
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Failed to load users', err);
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load users: ${err.message}</div>`;
+      }
+    }
+
+    async function loadEMRRecords() {
+      const table = document.getElementById('emrTableBody');
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading EMR records…</div>';
+
+      const query = new URLSearchParams({
+        userId: authUser.id,
+        ...(emrPatientSearchInput?.value.trim() ? { search: emrPatientSearchInput.value.trim() } : {}),
+      });
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/emr-records?${query.toString()}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch EMR records');
+
+        if (!data.records || data.records.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No EMR records found.</div>';
+          return;
+        }
+
+        table.innerHTML = data.records
+          .map((r, idx) => {
+            const patientName = `${r.first_name} ${r.last_name}`;
+            const recordDate = new Date(r.created_at).toLocaleDateString();
+
+            return `
+          <div class="admin-table-row" data-record-id="${r.id}" data-record-data="${encodeURIComponent(JSON.stringify(r))}">
+            <div>#EMR${String(r.id).padStart(3, '0')}</div>
+            <div>${patientName}</div>
+            <div>Assessment</div>
+            <div>${recordDate}</div>
+            <div><span class="status-badge status-active">Active</span></div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="action-btn view" data-action="view-emr">View</button>
+            </div>
+          </div>
+        `;
+          })
+          .join('');
+
+        // Attach View button handlers
+        document.querySelectorAll('button[data-action="view-emr"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const row = btn.closest('.admin-table-row');
+            const recordData = JSON.parse(decodeURIComponent(row.dataset.recordData));
+            viewEMRRecord(recordData);
+          });
+        });
+      } catch (err) {
+        console.error('Failed to load EMR records', err);
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load EMR records: ${err.message}</div>`;
+      }
+    }
+
+    function viewEMRRecord(record) {
+      const patientName = `${record.first_name} ${record.last_name}`;
+      const recordDate = new Date(record.created_at).toLocaleString();
+      const assessmentDetails = record.assessment_data ? JSON.parse(record.assessment_data) : {};
+      
+      let detailsText = `EMR Record Details\n\n`;
+      detailsText += `Record ID: #EMR${String(record.id).padStart(3, '0')}\n`;
+      detailsText += `Patient: ${patientName}\n`;
+      detailsText += `Patient ID: #PT${String(record.patient_id).padStart(3, '0')}\n`;
+      detailsText += `Created: ${recordDate}\n`;
+      detailsText += `\n--- Assessment Data ---\n`;
+      
+      if (Object.keys(assessmentDetails).length > 0) {
+        for (const [key, value] of Object.entries(assessmentDetails)) {
+          detailsText += `${key}: ${value}\n`;
+        }
+      } else {
+        detailsText += '🔐 [CP-ABE ENCRYPTED]\n\n';
+        detailsText += 'Admin access is BLOCKED by CP-ABE policy.\n';
+        detailsText += 'Only PATIENTS and DOCTORS can decrypt their assessments.\n\n';
+        detailsText += 'This is an intentional security restriction to protect\n';
+        detailsText += 'patient privacy and enforce fine-grained access control.';
+      }
+      
+      alert(detailsText);
+    }
+
+    async function loadConsultations() {
+      const table = document.getElementById('consultationsTableBody');
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading consultations…</div>';
+
+      const query = new URLSearchParams({
+        userId: authUser.id,
+        ...(consultationStatusFilter?.value ? { status: consultationStatusFilter.value } : {}),
+        ...(consultationDateFilter?.value ? { date: consultationDateFilter.value } : {}),
+      });
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/consultations?${query.toString()}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch consultations');
+
+        if (!data.consultations || data.consultations.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No consultations found.</div>';
+          return;
+        }
+
+        table.innerHTML = data.consultations
+          .map((c, idx) => {
+            const statusClass = c.status === 'pending' ? 'status-pending' : c.status === 'scheduled' ? 'status-active' : 'status-inactive';
+            const consultationDate = c.consultation_date || new Date(c.created_at).toLocaleDateString();
+
+            return `
+          <div class="admin-table-row">
+            <div>#C${String(c.id).padStart(3, '0')}</div>
+            <div>${c.patient_name || '—'}</div>
+            <div>${c.doctor_name || '—'}</div>
+            <div><span class="status-badge ${statusClass}">${(c.status || 'pending').toUpperCase()}</span></div>
+            <div>${consultationDate}</div>
+          </div>
+        `;
+          })
+          .join('');
+      } catch (err) {
+        console.error('Failed to load consultations', err);
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load consultations: ${err.message}</div>`;
+      }
+    }
+
+    async function loadQRCodes() {
+      const table = document.getElementById('qrTableBody');
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading QR codes…</div>';
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/qr-codes?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch QR codes');
+
+        if (!data.qrCodes || data.qrCodes.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No QR codes found.</div>';
+          return;
+        }
+
+        // Calculate stats
+        const totalQR = data.qrCodes.length;
+        const now = new Date();
+        const activeQR = data.qrCodes.filter(q => !q.used && new Date(q.expires_at) > now).length;
+        const expiredQR = data.qrCodes.filter(q => q.used || new Date(q.expires_at) < now).length;
+
+        document.getElementById('statTotalQRCodes').textContent = totalQR;
+        document.getElementById('statActiveQRCodes').textContent = activeQR;
+        document.getElementById('statExpiredQRCodes').textContent = expiredQR;
+
+        table.innerHTML = data.qrCodes
+          .map((q, idx) => {
+            const status = q.used ? 'USED' : new Date(q.expires_at) > now ? 'ACTIVE' : 'EXPIRED';
+            const statusClass = status === 'ACTIVE' ? 'status-active' : status === 'USED' ? 'status-inactive' : 'status-pending';
+            const createdDate = new Date(q.created_at).toLocaleDateString();
+            const expiresDate = new Date(q.expires_at).toLocaleDateString();
+
+            return `
+          <div class="admin-table-row" data-record-data='${JSON.stringify(q)}'>
+            <div>#QR${String(q.id).padStart(3, '0')}</div>
+            <div>${q.display_name || 'Admin'}</div>
+            <div>${createdDate}</div>
+            <div><span class="status-badge ${statusClass}">${status}</span></div>
+            <div>${expiresDate}</div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="action-btn view" data-action="view-qr">View</button>
+              <button class="action-btn delete">Revoke</button>
+            </div>
+          </div>
+        `;
+          })
+          .join('');
+
+        // Attach View button handlers
+        document.querySelectorAll('button[data-action="view-qr"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const row = btn.closest('.admin-table-row');
+            const recordData = row.dataset.recordData;
+            if (recordData) {
+              const qrData = JSON.parse(recordData);
+              viewQRCode(qrData);
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Failed to load QR codes', err);
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load QR codes: ${err.message}</div>`;
+      }
+    }
+
+    function viewQRCode(qrData) {
+      const inviteUrl = `${API_BASE_URL}/register.html?token=${qrData.token}`;
+      const expiresDate = new Date(qrData.expires_at);
+      const now = new Date();
+      const timeRemaining = expiresDate - now;
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      const timeRemainingText = timeRemaining > 0 ? `${hours}h ${minutes}m` : 'Expired';
+
+      // Store for copy/download functionality
+      window.currentQRDataUrl = qrData.qrDataUrl;
+      window.currentQRLink = inviteUrl;
+
+      // Display QR code that was already generated on server
+      document.getElementById('qrImage').src = qrData.qrDataUrl;
+      document.getElementById('qrLink').textContent = inviteUrl;
+      document.getElementById('qrExpiry').textContent = expiresDate.toLocaleString();
+      document.getElementById('qrTimeRemaining').textContent = timeRemainingText;
+      
+      document.getElementById('qrModal').classList.add('active');
+    }
+
+    function closeQRModal() {
+      document.getElementById('qrModal').classList.remove('active');
+    }
+
+    function closeGenerateModal() {
+      document.getElementById('qrGenerateModal').classList.remove('active');
+    }
+
+    function copyQRLink() {
+      if (window.currentQRLink) {
+        navigator.clipboard.writeText(window.currentQRLink).then(() => {
+          alert('✅ Link copied to clipboard!');
+        }).catch(err => {
+          console.error('Failed to copy', err);
+          alert('Failed to copy link');
+        });
+      }
+    }
+
+    function copyGeneratedQRLink() {
+      if (window.currentGeneratedQRLink) {
+        navigator.clipboard.writeText(window.currentGeneratedQRLink).then(() => {
+          alert('✅ Link copied to clipboard!');
+        }).catch(err => {
+          console.error('Failed to copy', err);
+          alert('Failed to copy link');
+        });
+      }
+    }
+
+    function downloadImage(dataUrl, filename) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function downloadQRCode() {
+      if (window.currentQRDataUrl) {
+        downloadImage(window.currentQRDataUrl, 'qr-code-registration.png');
+      } else {
+        alert('No QR code image available for download.');
+      }
+    }
+
+    function downloadGeneratedQRCode() {
+      if (window.currentGeneratedQRDataUrl) {
+        downloadImage(window.currentGeneratedQRDataUrl, 'qr-code-registration.png');
+      } else {
+        alert('No QR code image available for download.');
+      }
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('qrModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'qrModal') {
+        closeQRModal();
+      }
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('qrGenerateModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'qrGenerateModal') {
+        closeGenerateModal();
+      }
+    });
+
+    function reportValue(value) {
+      if (value === null || value === undefined || value === '') return '—';
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatReportDateTime(dateValue, timeValue = '') {
+      const datePart = String(dateValue || '').slice(0, 10);
+      const timePart = String(timeValue || '').trim();
+      if (!datePart && !timePart) return '—';
+      if (!timePart) return datePart;
+      const parsed = new Date(`${datePart || '1970-01-01'}T${timePart}`);
+      if (Number.isNaN(parsed.getTime())) return `${datePart} ${timePart}`.trim();
+      return `${datePart} ${parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    }
+
+    function reportCountMap(rows, labelKey = 'status') {
+      if (!rows?.length) return '<p class="report-empty">No data available.</p>';
+
+      return `
+        <table class="report-table">
+          <thead><tr><th>${reportValue(labelKey)}</th><th>Count</th></tr></thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                <td>${reportValue(row[labelKey] || row.type || row.role || row.status || row.day)}</td>
+                <td>${Number(row.count || 0).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function reportTable(rows, columns) {
+      if (!rows?.length) return '<p class="report-empty">No records found.</p>';
+
+      return `
+        <table class="report-table">
+          <thead>
+            <tr>${columns.map(column => `<th>${reportValue(column.label)}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                ${columns.map(column => `<td>${reportValue(column.format ? column.format(row[column.key], row) : row[column.key])}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function reportKpi(label, value) {
+      return `
+        <div class="report-kpi">
+          <span>${reportValue(label)}</span>
+          <strong>${Number(value || 0).toLocaleString()}</strong>
+        </div>
+      `;
+    }
+
+    function reportPanel(title, html) {
+      return `
+        <div class="report-panel">
+          <h4>${reportValue(title)}</h4>
+          ${html}
+        </div>
+      `;
+    }
+
+    function reportNumber(value) {
+      return Number(value || 0);
+    }
+
+    function reportPercent(part, total) {
+      if (!total) return 0;
+      return Math.max(0, Math.min(100, Math.round((part / total) * 100)));
+    }
+
+    function reportStatusCount(rows = [], names = []) {
+      const wanted = names.map(name => String(name).toLowerCase());
+      return (rows || []).reduce((sum, row) => {
+        const label = String(row.status || row.type || row.role || row.day || '').toLowerCase();
+        return wanted.includes(label) ? sum + reportNumber(row.count) : sum;
+      }, 0);
+    }
+
+    function reportSparkline(rows = [], color = '#91314c') {
+      const values = (rows || []).slice(-5).map(row => reportNumber(row.count));
+      while (values.length < 5) values.unshift(0);
+      const max = Math.max(...values, 1);
+      const points = values.map((value, index) => {
+        const x = 20 + (index * 42);
+        const y = 100 - ((value / max) * 80);
+        return { x, y, value };
+      });
+      const polyline = points.map(point => `${point.x},${point.y}`).join(' ');
+
+      return `
+        <svg class="kpi-chart" viewBox="0 0 200 120" role="img" aria-label="Trend chart">
+          <line x1="18" y1="100" x2="190" y2="100" stroke="#d7d7d7" />
+          <line x1="18" y1="15" x2="18" y2="100" stroke="#d7d7d7" />
+          <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2" />
+          ${points.map(point => `<circle cx="${point.x}" cy="${point.y}" r="3" fill="${color}" />`).join('')}
+          ${points.map((point, index) => `<text x="${point.x - 6}" y="116">W${index + 1}</text>`).join('')}
+        </svg>
+      `;
+    }
+
+    function kpiMetric(title, value, delta, rows, color = '#91314c') {
+      const negative = Number(delta) < 0;
+      return `
+        <div class="kpi-metric">
+          <h4>${reportValue(title)}</h4>
+          <div class="kpi-metric-value">${reportNumber(value).toLocaleString()}</div>
+          <div style="text-align:center;"><span class="kpi-delta ${negative ? 'negative' : ''}">${Number(delta) > 0 ? '+' : ''}${delta}</span></div>
+          ${reportSparkline(rows, color)}
+        </div>
+      `;
+    }
+
+    function kpiTheme(label, value, delta, highlight = false) {
+      const negative = Number(delta) < 0;
+      return `
+        <div class="kpi-theme ${highlight ? 'highlight' : ''}">
+          <div>
+            <div class="kpi-theme-label">${reportValue(label)}</div>
+            <div class="kpi-theme-icon"></div>
+            <div class="kpi-theme-value">${reportNumber(value)}%</div>
+            <div class="kpi-theme-change ${negative ? 'negative' : ''}">${Number(delta) > 0 ? '+' : ''}${delta}%</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function reportPieLegend(rows = [], labelKey = 'label') {
+      const palette = ['#00475f', '#087a86', '#1598b4', '#b9d8df', '#f5976d', '#e95b0c'];
+      const total = rows.reduce((sum, row) => sum + reportNumber(row.count), 0);
+      if (!rows.length || !total) return '<p class="report-empty">No records found.</p>';
+
+      return `
+        <div class="kpi-pie-list">
+          ${rows.slice(0, 6).map((row, index) => `
+            <div class="kpi-legend-row">
+              <span class="kpi-dot" style="background:${palette[index % palette.length]}"></span>
+              <span>${reportValue(row[labelKey] || row.role || row.status || row.type || 'Record')}</span>
+              <strong>${reportNumber(row.count).toLocaleString()}</strong>
+            </div>
+          `).join('')}
+          <div class="kpi-legend-row" style="border-top:1px solid #d7d7d7; padding-top:0.4rem;">
+            <span></span><span>Total</span><strong>${total.toLocaleString()}</strong>
+          </div>
+        </div>
+      `;
+    }
+
+    function kpiChartValues(rows = [], minPoints = 6) {
+      const values = (rows || []).map(row => reportNumber(row.count));
+      while (values.length < minPoints) values.unshift(0);
+      return values.slice(-Math.max(minPoints, values.length));
+    }
+
+    function kpiAxisLabel(row, index) {
+      const raw = row?.day || row?.role || row?.status || row?.type || `R${index + 1}`;
+      const label = String(raw).includes('-') ? String(raw).slice(5) : String(raw);
+      return reportValue(label).slice(0, 8);
+    }
+
+    function kpiAreaChart(rows = [], color = '#00475f') {
+      const source = (rows || []).slice(-8);
+      const values = kpiChartValues(source, 6);
+      const max = Math.max(...values, 1);
+      const width = 240;
+      const baseY = 108;
+      const points = values.map((value, index) => {
+        const x = 18 + (index * ((width - 34) / Math.max(values.length - 1, 1)));
+        const y = baseY - ((value / max) * 82);
+        return { x, y };
+      });
+      const line = points.map(point => `${point.x},${point.y}`).join(' ');
+      const area = `18,${baseY} ${line} ${points[points.length - 1].x},${baseY}`;
+
+      return `
+        <svg class="kpi-chart" viewBox="0 0 ${width} 132" role="img" aria-label="Area chart">
+          <line class="kpi-chart-grid" x1="12" y1="38" x2="230" y2="38" />
+          <line class="kpi-chart-grid" x1="12" y1="72" x2="230" y2="72" />
+          <line class="kpi-chart-grid" x1="12" y1="108" x2="230" y2="108" />
+          <polygon class="kpi-area-fill" points="${area}" />
+          <polyline class="kpi-area-line" points="${line}" stroke="${color}" />
+        </svg>
+      `;
+    }
+
+    function kpiBarChart(rows = [], color = '#00475f') {
+      const source = (rows || []).slice(-9);
+      const values = kpiChartValues(source, 7);
+      const max = Math.max(...values, 1);
+      const barWidth = 14;
+      const gap = 9;
+
+      return `
+        <svg class="kpi-chart" viewBox="0 0 240 132" role="img" aria-label="Column chart">
+          <line class="kpi-chart-grid" x1="12" y1="38" x2="230" y2="38" />
+          <line class="kpi-chart-grid" x1="12" y1="72" x2="230" y2="72" />
+          <line class="kpi-chart-grid" x1="12" y1="108" x2="230" y2="108" />
+          ${values.map((value, index) => {
+            const h = Math.max(6, (value / max) * 88);
+            const x = 22 + (index * (barWidth + gap));
+            return `<rect class="kpi-bar" x="${x}" y="${108 - h}" width="${barWidth}" height="${h}" fill="${color}" />`;
+          }).join('')}
+        </svg>
+      `;
+    }
+
+    function kpiDonutSegments(rows = []) {
+      const palette = ['#00475f', '#087a86', '#1598b4', '#b9d8df', '#f5976d', '#e95b0c'];
+      const visibleRows = (rows || []).filter(row => reportNumber(row.count) > 0).slice(0, 6);
+      const total = visibleRows.reduce((sum, row) => sum + reportNumber(row.count), 0);
+      if (!total) return '#dbe5ea 0deg 360deg';
+      let cursor = 0;
+      return visibleRows.map((row, index) => {
+        const slice = (reportNumber(row.count) / total) * 360;
+        const start = cursor;
+        const end = cursor + slice;
+        cursor = end;
+        return `${palette[index % palette.length]} ${start}deg ${end}deg`;
+      }).join(', ');
+    }
+
+    function kpiMultiTrendChart(series = []) {
+      const width = 720;
+      const height = 170;
+      const left = 24;
+      const right = 14;
+      const top = 18;
+      const baseY = 132;
+      const allValues = series.flatMap(item => item.values);
+      const max = Math.max(...allValues, 1);
+      const labels = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const paths = series.map(item => {
+        const points = item.values.map((value, index) => {
+          const x = left + (index * ((width - left - right) / Math.max(item.values.length - 1, 1)));
+          const y = baseY - ((value / max) * (baseY - top));
+          return { x, y };
+        });
+        const line = points.map(point => `${point.x},${point.y}`).join(' ');
+        return `
+          <polyline class="kpi-trend-line" points="${line}" stroke="${item.color}" />
+          ${points.map(point => `<circle cx="${point.x}" cy="${point.y}" r="3.5" fill="${item.color}" />`).join('')}
+        `;
+      }).join('');
+
+      return `
+        <svg class="kpi-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Trend chart">
+          <line class="kpi-chart-grid" x1="${left}" y1="36" x2="${width - right}" y2="36" />
+          <line class="kpi-chart-grid" x1="${left}" y1="72" x2="${width - right}" y2="72" />
+          <line class="kpi-chart-grid" x1="${left}" y1="108" x2="${width - right}" y2="108" />
+          <line class="kpi-chart-grid" x1="${left}" y1="${baseY}" x2="${width - right}" y2="${baseY}" />
+          ${paths}
+          ${labels.map((label, index) => {
+            const x = left + (index * ((width - left - right) / (labels.length - 1)));
+            return `<text x="${x - 9}" y="160">${label}</text>`;
+          }).join('')}
+        </svg>
+      `;
+    }
+
+    function buildKpiDashboard(report) {
+      const data = report.data || {};
+      const totals = data.totals || {};
+      const userRows = data.users?.byStatus || [];
+      const consultationRows = data.consultations?.byStatus || [];
+      const notificationRows = data.security?.notifications || [];
+      const trendRows = data.consultations?.dailyTrend || [];
+      const roleRows = data.users?.byRole || [];
+
+      const totalUsers = reportNumber(totals.totalUsers);
+      const totalConsultations = reportNumber(totals.totalConsultations);
+      const activeConsultations = reportNumber(totals.activeConsultations);
+      const totalEmrs = reportNumber(totals.totalEmrs);
+      const pendingUsers = reportStatusCount(userRows, ['pending']);
+      const inactiveUsers = reportStatusCount(userRows, ['inactive']);
+      const completedConsultations = reportStatusCount(consultationRows, ['completed', 'finished', 'done', 'resolved']);
+      const pendingConsultations = reportStatusCount(consultationRows, ['pending', 'under-review']);
+      const noticeCount = notificationRows.reduce((sum, row) => sum + reportNumber(row.count), 0);
+      const totalPages = totalUsers + totalConsultations + totalEmrs + reportNumber(totals.totalMessages);
+      const healthy = Math.max(totalUsers - pendingUsers - inactiveUsers, 0);
+      const activeUserPercent = reportPercent(healthy, Math.max(totalUsers, 1));
+      const consultationCompletion = reportPercent(completedConsultations, Math.max(totalConsultations, 1));
+      const roleTrendRows = roleRows.map((row, index) => ({ count: row.count, day: kpiAxisLabel(row, index) }));
+      const trendValues = kpiChartValues(trendRows, 12);
+      const roleValues = kpiChartValues(roleRows, 12);
+      const emrValues = kpiChartValues(data.users?.recent?.map((row, index) => ({ count: index + 1 })), 12);
+
+      return `
+        <div class="kpi-report">
+          <div class="kpi-report-title">
+            <h3>${reportValue(report.title)} Dashboard</h3>
+            <span class="kpi-badge">${new Date(report.generatedAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+          </div>
+
+          <div class="kpi-dashboard-grid">
+            <div class="kpi-card">
+              <h4>Historic - Users</h4>
+              <div class="kpi-card-value">${totalUsers.toLocaleString()}</div>
+              ${kpiAreaChart(roleTrendRows, '#00475f')}
+            </div>
+
+            <div class="kpi-card">
+              <h4>Historic - Consultations</h4>
+              <div class="kpi-card-value">${totalConsultations.toLocaleString()}</div>
+              ${kpiBarChart(trendRows, '#00475f')}
+            </div>
+
+            <div class="kpi-card kpi-donut-card">
+              <h4>List - User Roles</h4>
+              <div class="kpi-donut-wrap">
+                <div class="kpi-donut" style="--segments:${kpiDonutSegments(roleRows)};"></div>
+              </div>
+              ${reportPieLegend(roleRows, 'role')}
+            </div>
+
+            <div class="kpi-card kpi-number-card">
+              <h4>Total Records</h4>
+              <div class="kpi-simple-number">${totalPages.toLocaleString()}</div>
+              <div>Users ${activeUserPercent}% active | Consultations ${consultationCompletion}% completed</div>
+            </div>
+
+            <div class="kpi-card kpi-trend-card">
+              <h4>Trend - Records</h4>
+              <div class="kpi-trend-legend">
+                <span style="color:#00475f;">Consultations</span>
+                <span style="color:#087a86;">User Roles</span>
+                <span style="color:#1598b4;">EMR Records</span>
+              </div>
+              ${kpiMultiTrendChart([
+                { values: trendValues, color: '#00475f' },
+                { values: roleValues, color: '#087a86' },
+                { values: emrValues, color: '#1598b4' },
+              ])}
+            </div>
+          </div>
+
+        </div>
+      `;
+    }
+
+    function buildReportDetails(report) {
+      const data = report.data || {};
+      const totals = data.totals || {};
+
+      if (report.type === 'patient-history') {
+        const rows = data.patientHistory || [];
+        return `
+          ${reportPanel('Walk-in and Online Scheduled Patient History', reportTable(rows, [
+            { key: 'transaction_id', label: 'Transaction ID', format: value => `TRX-${String(value).padStart(6, '0')}` },
+            { key: 'patient_name', label: 'Patient' },
+            { key: 'doctor_name', label: 'Doctor' },
+            { key: 'consultation_source', label: 'Type', format: value => value === 'walk-in' ? 'Walk-in' : 'Online scheduled' },
+            { key: 'status', label: 'Current Status' },
+            { key: 'consultation_date', label: 'Schedule', format: (value, row) => formatReportDateTime(value, row.consultation_time) },
+            { key: 'updated_at', label: 'Last Updated', format: value => value ? new Date(value).toLocaleString([], { hour12: true }) : '—' },
+            { key: 'signature', label: 'Signature', format: () => '________________' },
+          ]))}
+        `;
+      }
+
+      if (report.type === 'consultations') {
+        return `
+          <div class="report-kpi-grid">
+            ${reportKpi('Total Consultations', totals.totalConsultations)}
+            ${reportKpi('Active Consultations', totals.activeConsultations)}
+          </div>
+          <div class="report-section-grid">
+            ${reportPanel('Consultations by Status', reportCountMap(data.consultations?.byStatus))}
+            ${reportPanel('Daily Consultation Trend', reportCountMap(data.consultations?.dailyTrend, 'day'))}
+            ${reportPanel('Recent Consultations', reportTable(data.consultations?.recent, [
+              { key: 'id', label: 'Transaction ID', format: value => `TRX-${String(value).padStart(6, '0')}` },
+              { key: 'patient_name', label: 'Patient' },
+              { key: 'doctor_name', label: 'Doctor' },
+              { key: 'consultation_source', label: 'Type', format: value => value === 'walk-in' ? 'Walk-in' : 'Online scheduled' },
+              { key: 'status', label: 'Current Status' },
+              { key: 'consultation_date', label: 'Schedule', format: (value, row) => formatReportDateTime(value, row.consultation_time) },
+              { key: 'updated_at', label: 'Updated', format: value => value ? new Date(value).toLocaleString([], { hour12: true }) : '—' },
+              { key: 'signature', label: 'Signature', format: () => '________________' },
+            ]))}
+          </div>
+        `;
+      }
+
+      if (report.type === 'security') {
+        return `
+          <div class="report-kpi-grid">
+            ${reportKpi('Protected EMRs', data.security?.protectedEmrs)}
+            ${reportKpi('Total EMRs', data.security?.totalEmrs)}
+            ${reportKpi('Unread Messages', totals.unreadMessages)}
+          </div>
+          <div class="report-section-grid">
+            ${reportPanel('Password Reset Requests', reportCountMap(data.security?.passwordResetRequests))}
+            ${reportPanel('QR Invites', reportCountMap(data.security?.invites))}
+            ${reportPanel('Notifications by Type', reportCountMap(data.security?.notifications, 'type'))}
+          </div>
+        `;
+      }
+
+      if (report.type === 'users') {
+        return `
+          <div class="report-kpi-grid">
+            ${reportKpi('Total Users', totals.totalUsers)}
+          </div>
+          <div class="report-section-grid">
+            ${reportPanel('Users by Role', reportCountMap(data.users?.byRole, 'role'))}
+            ${reportPanel('Users by Status', reportCountMap(data.users?.byStatus))}
+            ${reportPanel('Recent Users', reportTable(data.users?.recent, [
+              { key: 'display_name', label: 'Name' },
+              { key: 'email', label: 'Email' },
+              { key: 'role', label: 'Role' },
+              { key: 'status', label: 'Status' },
+              { key: 'created_at', label: 'Created', format: value => value ? new Date(value).toLocaleString() : '—' },
+            ]))}
+          </div>
+        `;
+      }
+
+      return `
+        <div class="report-kpi-grid">
+          ${reportKpi('Total Users', totals.totalUsers)}
+          ${reportKpi('Total Consultations', totals.totalConsultations)}
+          ${reportKpi('Protected EMRs', totals.protectedEmrs)}
+          ${reportKpi('Messages', totals.totalMessages)}
+        </div>
+        <div class="report-section-grid">
+          ${reportPanel('Users by Role', reportCountMap(data.users?.byRole, 'role'))}
+          ${reportPanel('Consultations by Status', reportCountMap(data.consultations?.byStatus))}
+          ${reportPanel('QR Invites', reportCountMap(data.security?.invites))}
+        </div>
+      `;
+    }
+
+    function renderAdminReport(report) {
+      window.currentAdminReport = report;
+      recentReportsContent.className = 'report-output';
+      recentReportsContent.removeAttribute('style');
+      recentReportsContent.innerHTML = `
+        <div class="report-output-header">
+          <div>
+            <h3>${reportValue(report.title)}</h3>
+            <p>Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+          </div>
+          <div class="report-actions">
+            <button class="btn-export" onclick="downloadCurrentReportPdf()">View / Print Report</button>
+          </div>
+        </div>
+        ${buildReportDetails(report)}
+      `;
+    }
+
+    async function loadAdminReport(type, button) {
+      const originalText = button.textContent;
+
+      try {
+        button.disabled = true;
+        button.textContent = 'Loading...';
+        recentReportsContent.innerHTML = '<p>Loading report...</p>';
+
+        const query = new URLSearchParams({ userId: authUser.id });
+        if (reportSearch?.value.trim()) query.set('search', reportSearch.value.trim());
+        if (reportStartDate?.value) query.set('startDate', reportStartDate.value);
+        if (reportEndDate?.value) query.set('endDate', reportEndDate.value);
+        const resp = await fetch(`${API_BASE_URL}/api/admin/reports/${encodeURIComponent(type)}?${query.toString()}`);
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to load report.');
+
+        renderAdminReport(data.report);
+      } catch (err) {
+        console.error('Report error', err);
+        recentReportsContent.innerHTML = `<p class="report-empty">Failed to load report: ${reportValue(err.message)}</p>`;
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+
+    function getReportFileName(report) {
+      const datePart = new Date(report.generatedAt).toISOString().slice(0, 10);
+      return `${report.type}-admin-report-${datePart}`;
+    }
+
+    function buildReportPrintHtml(report) {
+      return `
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${reportValue(report.title)} PDF</title>
+            <style>
+              @page { margin: 16mm; }
+              * { box-sizing: border-box; }
+              body {
+                margin: 0;
+                color: #111827;
+                font-family: Arial, sans-serif;
+                line-height: 1.45;
+              }
+              .report-output {
+                box-shadow: none;
+                padding: 0;
+              }
+              .report-output-header {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                border-bottom: 2px solid #0066cc;
+                padding-bottom: 1rem;
+                margin-bottom: 1.5rem;
+              }
+              .report-output-header h3 {
+                margin: 0 0 0.35rem 0;
+                font-size: 1.35rem;
+              }
+              .report-output-header p {
+                margin: 0;
+                color: #4b5563;
+                font-size: 0.9rem;
+              }
+              .report-actions { display: none; }
+              .report-kpi-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.8rem;
+                margin-bottom: 1.25rem;
+              }
+              .report-kpi {
+                border: 1px solid #d8e2ef;
+                border-left: 4px solid #0066cc;
+                border-radius: 8px;
+                padding: 0.85rem;
+                background: #f8fbff;
+                break-inside: avoid;
+              }
+              .report-kpi span {
+                display: block;
+                color: #334155;
+                font-size: 0.72rem;
+                font-weight: 700;
+                margin-bottom: 0.45rem;
+                text-transform: uppercase;
+              }
+              .report-kpi strong {
+                display: block;
+                font-size: 1.5rem;
+              }
+              .report-section-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+              }
+              .report-panel {
+                border: 1px solid #d8e2ef;
+                border-radius: 8px;
+                overflow: hidden;
+                break-inside: avoid;
+                background: #fff;
+              }
+              .report-panel h4 {
+                margin: 0;
+                padding: 0.8rem;
+                background: #f0f4f8;
+                border-bottom: 1px solid #d8e2ef;
+                font-size: 0.95rem;
+              }
+              .report-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.78rem;
+              }
+              .report-table th,
+              .report-table td {
+                padding: 0.55rem;
+                border-bottom: 1px solid #e5e7eb;
+                text-align: left;
+                vertical-align: top;
+              }
+              .report-table th {
+                color: #475569;
+                font-size: 0.68rem;
+                text-transform: uppercase;
+                background: #fafafa;
+              }
+              .report-empty {
+                color: #64748b;
+                padding: 1rem;
+                text-align: center;
+              }
+              .kpi-report-title {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                margin-bottom: 1rem;
+              }
+              .kpi-report-title h3 {
+                margin: 0;
+                font-size: 2rem;
+                font-weight: 400;
+              }
+              .kpi-badge {
+                background: #4b4b54;
+                color: #fff;
+                padding: 0.25rem 0.65rem;
+                font-weight: 700;
+                height: fit-content;
+              }
+              .kpi-dashboard-grid {
+                display: grid;
+                grid-template-columns: 260px 1fr 160px;
+                gap: 0.6rem;
+              }
+              .kpi-card,
+              .kpi-metric {
+                border: 1px solid #e5e7eb;
+                background: #fff;
+                break-inside: avoid;
+              }
+              .kpi-card h4,
+              .kpi-metric h4 {
+                margin: 0;
+                padding: 0.6rem;
+                border-bottom: 1px solid #d7d7d7;
+              }
+              .kpi-thematic { grid-column: span 2; padding: 0.6rem; }
+              .kpi-theme-row {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.45rem;
+              }
+              .kpi-theme {
+                min-height: 120px;
+                display: grid;
+                place-items: center;
+                text-align: center;
+                background: #fbfbfb;
+                border: 1px solid #efefef;
+              }
+              .kpi-theme.highlight { border: 2px solid #ff2a1f; }
+              .kpi-theme-icon,
+              .kpi-issue-icon {
+                background: #444a58;
+                border-radius: 50px 50px 0 0;
+                margin: 0.35rem auto;
+              }
+              .kpi-theme-icon { width: 48px; height: 34px; }
+              .kpi-theme-value,
+              .kpi-metric-value,
+              .kpi-pages-total {
+                font-size: 1.6rem;
+                font-weight: 800;
+                text-align: center;
+              }
+              .kpi-delta {
+                display: inline-block;
+                background: #00a84f;
+                color: #fff;
+                padding: 0.1rem 0.4rem;
+                font-size: 0.75rem;
+              }
+              .kpi-delta.negative { background: #ff120b; }
+              .kpi-ring-wrap { min-height: 160px; display: grid; place-items: center; }
+              .kpi-ring {
+                --score: 50;
+                width: 130px;
+                height: 130px;
+                border-radius: 50%;
+                background: conic-gradient(#444a58 calc(var(--score) * 1%), #f0f0f0 0);
+                display: grid;
+                place-items: center;
+              }
+              .kpi-ring-value {
+                width: 96px;
+                height: 96px;
+                border-radius: 50%;
+                background: #fff;
+                display: grid;
+                place-items: center;
+                font-size: 1.6rem;
+                font-weight: 800;
+              }
+              .kpi-stack { height: 22px; margin: 0.4rem; display: flex; }
+              .kpi-stack span:nth-child(1) { background: #414653; }
+              .kpi-stack span:nth-child(2) { background: #6a7080; }
+              .kpi-stack span:nth-child(3) { background: #9ca3b4; }
+              .kpi-stack span:nth-child(4) { background: #91314c; }
+              .kpi-stack span:nth-child(5) { background: #bd4c6c; }
+              .kpi-legend { display: grid; gap: 0.35rem; padding: 0.5rem; font-size: 0.78rem; }
+              .kpi-legend-row { display: grid; grid-template-columns: auto 1fr auto; gap: 0.35rem; }
+              .kpi-dot { width: 0.3rem; height: 0.3rem; background: #444a58; margin-top: 0.45rem; }
+              .kpi-metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+              .kpi-metric { padding: 0.6rem; min-height: 240px; }
+              .kpi-chart { width: 100%; height: 90px; }
+              .kpi-issues {
+                background: #fdebec;
+                display: grid;
+                place-items: center;
+                text-align: center;
+                padding: 0.75rem;
+              }
+              .kpi-issue-icon { width: 74px; height: 48px; background: #91314c; }
+              .kpi-detail-grid { margin-top: 0.75rem; }
+              .kpi-report { max-width: 100%; }
+              .kpi-report-title h3 { font-size: 1.5rem; font-weight: 700; }
+              .kpi-dashboard-grid {
+                grid-template-columns: 1fr 1fr 2fr;
+                grid-auto-rows: minmax(180px, auto);
+                gap: 0.55rem;
+              }
+              .kpi-card { overflow: hidden; box-shadow: none; }
+              .kpi-card h4 {
+                color: #627180;
+                font-size: 0.72rem;
+                text-transform: uppercase;
+              }
+              .kpi-card-value {
+                color: #263a48;
+                font-size: 1.8rem;
+                font-weight: 500;
+                line-height: 1;
+                text-align: center;
+              }
+              .kpi-donut-card {
+                display: grid;
+                grid-template-columns: minmax(120px, 0.9fr) minmax(160px, 1.1fr);
+                align-items: center;
+                padding-right: 0.5rem;
+              }
+              .kpi-donut-card h4 { grid-column: 1 / -1; }
+              .kpi-donut-wrap { display: grid; place-items: center; min-height: 120px; }
+              .kpi-donut {
+                width: 110px;
+                aspect-ratio: 1;
+                border-radius: 50%;
+                background: conic-gradient(var(--segments, #00475f 0 100%));
+                position: relative;
+              }
+              .kpi-donut::after {
+                content: "";
+                position: absolute;
+                inset: 28%;
+                border-radius: 50%;
+                background: #fff;
+              }
+              .kpi-number-card {
+                background: #00475f;
+                color: #fff;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: 0.75rem;
+              }
+              .kpi-number-card h4 { color: #c9edf5; padding: 0; }
+              .kpi-simple-number {
+                color: #fff;
+                font-size: 5.8rem;
+                font-weight: 300;
+                line-height: 0.85;
+              }
+              .kpi-trend-card { grid-column: span 2; }
+              .kpi-trend-card .kpi-chart { height: 145px; }
+              .kpi-trend-legend {
+                display: flex;
+                gap: 0.85rem;
+                padding: 0 0.6rem;
+                color: #6b7785;
+                font-size: 0.72rem;
+              }
+              .kpi-area-fill { fill: rgba(0, 71, 95, 0.26); }
+              .kpi-area-line,
+              .kpi-trend-line {
+                fill: none;
+                stroke-width: 2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+              }
+              @media print {
+                body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+              }
+            </style>
+</head>
+          <body>
+            <main class="report-output">
+              <div class="report-output-header">
+                <div>
+                  <h3>${reportValue(report.title)}</h3>
+                  <p>Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p>${reportValue(getReportFileName(report))}</p>
+                </div>
+              </div>
+              ${buildReportDetails(report)}
+            </main>
+          </body>
+        </html>
+      `;
+    }
+
+    function downloadCurrentReportPdf() {
+      if (!window.currentAdminReport) return;
+
+      const printWindow = window.open('', '_blank', 'width=1100,height=800');
+      if (!printWindow) {
+        alert('Please allow pop-ups to download the report as PDF.');
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(buildReportPrintHtml(window.currentAdminReport));
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    }
+
+    reportButtons.forEach(button => {
+      button.addEventListener('click', () => loadAdminReport(button.dataset.reportType, button));
+    });
+
+    async function viewUser(userId) {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load user.');
+
+        const user = data.user;
+        alert(`User Details:\n\nID: ${user.id}\nName: ${user.display_name || '—'}\nEmail: ${user.email}\nRole: ${user.role}\nStatus: ${user.status}\nCreated: ${new Date(user.created_at).toLocaleString()}`);
+      } catch (err) {
+        console.error('View user error', err);
+        alert('Failed to load user details: ' + err.message);
+      }
+    }
+
+    async function editUser(userId) {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}?userId=${authUser.id}`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load user.');
+
+        const user = data.user;
+        const newName = prompt('Update display name:', user.display_name || '');
+        if (newName === null) return; // cancelled
+
+        const newEmail = prompt('Update email:', user.email);
+        if (newEmail === null) return; // cancelled
+
+        const updateResp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}?userId=${authUser.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ displayName: newName.trim(), email: newEmail.trim() }),
+        });
+        const updateData = await updateResp.json();
+        if (!updateResp.ok || !updateData.success) throw new Error(updateData.message || 'Failed to update user.');
+
+        await loadUsers();
+        alert('User updated successfully.');
+      } catch (err) {
+        console.error('Edit user error', err);
+        alert('Failed to update user: ' + err.message);
+      }
+    }
+
+    async function toggleUserStatus(userId) {
+      try {
+        const row = document.querySelector(`[data-user-id="${userId}"]`);
+        const currentStatus = row?.dataset.userStatus || 'active';
+        const targetStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
+
+        const confirmed = confirm(
+          `Are you sure you want to ${targetStatus === 'inactive' ? 'deactivate' : 'reactivate'} this account?`
+        );
+        if (!confirmed) return;
+
+        const updateResp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/status?userId=${authUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: targetStatus }),
+        });
+        const updateData = await updateResp.json();
+        if (!updateResp.ok || !updateData.success) throw new Error(updateData.message || 'Failed to update user status.');
+
+        await loadUsers();
+        alert('User status updated.');
+      } catch (err) {
+        console.error('Toggle status error', err);
+        alert('Failed to update status: ' + err.message);
+      }
+    }
+
+    async function updatePendingUserStatus(userId, targetStatus) {
+      try {
+        const actionText = targetStatus === 'active'
+          ? 'approve this registration'
+          : 'reject and delete this registration';
+        const confirmed = confirm(`Are you sure you want to ${actionText}?`);
+        if (!confirmed) return;
+
+        const updateResp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/status?userId=${authUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: targetStatus }),
+        });
+        const updateData = await updateResp.json();
+        if (!updateResp.ok || !updateData.success) throw new Error(updateData.message || 'Failed to update registration status.');
+
+        await loadUsers();
+        await loadAdminNotifications();
+        alert(targetStatus === 'active'
+          ? 'Registration approved. The patient can now log in.'
+          : 'Registration rejected and deleted.');
+      } catch (err) {
+        console.error('Pending user status error', err);
+        alert('Failed to update registration: ' + err.message);
+      }
+    }
+
+    async function deleteUser(userId) {
+      try {
+        if (String(userId) === String(authUser.id)) {
+          alert('You cannot delete your own admin account while you are logged in.');
+          return;
+        }
+
+        const confirmed = confirm('Permanently delete this user and all related records? This cannot be undone.');
+        if (!confirmed) return;
+
+        const resp = await fetch(`${API_BASE_URL}/api/admin/users/${userId}?userId=${authUser.id}`, {
+          method: 'DELETE',
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to delete user.');
+
+        await loadUsers();
+        await loadAdminStats();
+        alert('User deleted successfully.');
+      } catch (err) {
+        console.error('Delete user error', err);
+        alert('Failed to delete user: ' + err.message);
+      }
+    }
+
+    async function loadPasswordResetRequests() {
+      const table = document.getElementById('passwordResetTableBody');
+      const status = passwordResetStatusFilter?.value || 'pending';
+      table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">Loading password reset requests...</div>';
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/password-reset-requests?userId=${authUser.id}&status=${encodeURIComponent(status)}`);
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to load password reset requests.');
+
+        if (!data.requests || data.requests.length === 0) {
+          table.innerHTML = '<div class="admin-table-row" style="justify-content:center;">No password reset requests found.</div>';
+          return;
+        }
+
+        table.innerHTML = data.requests.map((request) => {
+          const statusClass = request.status === 'completed' ? 'status-active' : 'status-inactive';
+          const requestedAt = new Date(request.requested_at).toLocaleString();
+          return `
+            <div class="admin-table-row">
+              <div>#${request.id}</div>
+              <div>${request.display_name || 'No name'}<br><small>${requestedAt}</small></div>
+              <div>${request.email}</div>
+              <div>${request.role}</div>
+              <div><span class="status-badge ${statusClass}">${request.status.toUpperCase()}</span></div>
+              <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                ${request.status === 'pending'
+                  ? `<button class="action-btn edit" data-action="reset-password" data-request-id="${request.id}" data-reset-email="${request.email}">Reset</button>`
+                  : `<span style="color:var(--text-secondary); font-size:0.9rem;">Completed</span>`}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('[data-action="reset-password"]').forEach((btn) => {
+          btn.addEventListener('click', () => resetUserPassword(btn.dataset.requestId, btn.dataset.resetEmail));
+        });
+      } catch (err) {
+        console.error('Load password reset requests error', err);
+        table.innerHTML = `<div class="admin-table-row" style="justify-content:center;">Failed to load requests: ${err.message}</div>`;
+      }
+    }
+
+    async function resetUserPassword(requestId, email) {
+      const newPassword = prompt(`Enter a temporary password for ${email}:`);
+      if (newPassword === null) return;
+      if (newPassword.trim().length < 6) {
+        alert('Temporary password must be at least 6 characters.');
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/password-reset-requests/${requestId}/reset?userId=${authUser.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword: newPassword.trim() }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Failed to reset password.');
+
+        await loadPasswordResetRequests();
+        await refreshPasswordResetBadge();
+        await loadAdminNotifications();
+        alert(`Password reset successfully. Give this temporary password to the user:\n\n${newPassword.trim()}`);
+      } catch (err) {
+        console.error('Reset password error', err);
+        alert('Failed to reset password: ' + err.message);
+      }
+    }
+
+    const addPatientDobInput = document.getElementById('addPatientDob');
+    if (addPatientDobInput) {
+      addPatientDobInput.max = new Date().toISOString().slice(0, 10);
+      addPatientDobInput.addEventListener('change', () => syncAddPatientAge());
+    }
+    ['addPatientFirstName', 'addPatientMiddleName', 'addPatientLastName'].forEach(id => bindInputSanitizer(id, sanitizeNameInput));
+    bindInputSanitizer('addPatientMobile', sanitizeNumericInput);
+
+    addUserRole.addEventListener('change', updateAddUserRoleFields);
+    adminAddUserForm.addEventListener('submit', createAdminUser);
+    userSearchInput.addEventListener('input', () => loadUsers());
+    roleFilter.addEventListener('change', () => loadUsers());
+    statusFilter.addEventListener('change', () => loadUsers());
+    consultationStatusFilter?.addEventListener('change', () => loadConsultations());
+    consultationDateFilter?.addEventListener('change', () => loadConsultations());
+    emrPatientSearchInput?.addEventListener('input', () => loadEMRRecords());
+    auditRoleFilter?.addEventListener('change', () => loadAuditLogs());
+    auditDateFilter?.addEventListener('change', () => loadAuditLogs());
+    passwordResetStatusFilter?.addEventListener('change', () => loadPasswordResetRequests());
+    updateAddUserRoleFields();
+
+    document.getElementById('generateQRBtn')?.addEventListener('click', generateQRCode);
+    adminNotificationsBtn?.addEventListener('click', () => {
+      const isOpen = adminNotificationPanel.classList.toggle('active');
+      adminNotificationsBtn.setAttribute('aria-expanded', String(isOpen));
+      if (isOpen) loadAdminNotifications();
+    });
+    refreshNotificationsBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      loadAdminNotifications();
+    });
+    document.addEventListener('click', (event) => {
+      if (!adminNotificationPanel?.classList.contains('active')) return;
+      if (event.target.closest('.notification-wrapper')) return;
+      adminNotificationPanel.classList.remove('active');
+      adminNotificationsBtn?.setAttribute('aria-expanded', 'false');
+    });
+
+    async function generateQRCode() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/admin/invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Failed to generate QR code');
+
+        // Populate modal with QR code data
+        window.currentGeneratedQRDataUrl = data.invite.qrDataUrl;
+        window.currentGeneratedQRLink = data.invite.inviteUrl;
+        document.getElementById('generatedQRImage').src = data.invite.qrDataUrl;
+        document.getElementById('generatedQRLink').textContent = data.invite.inviteUrl;
+        document.getElementById('generatedQRExpiry').textContent = new Date(data.invite.expiresAt).toLocaleString();
+        
+        // Show modal
+        document.getElementById('qrGenerateModal').classList.add('active');
+        await loadQRCodes();
+      } catch (err) {
+        console.error('Generate QR error', err);
+        alert('Failed to generate QR code: ' + err.message);
+      }
+    }
+
+    navBtns.forEach(btn => {
+      btn.addEventListener('click', () => switchSection(btn.dataset.target));
+    });
+
+    sidebarItems.forEach(item => {
+      item.addEventListener('click', () => switchSection(item.dataset.target));
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('authUser');
+      window.location.href = 'login.html';
+    });
+
+    // Initialize admin dashboard
+    loadAdminStats();
+    refreshPasswordResetBadge();
+    loadAdminNotifications();
+    setInterval(() => {
+      loadAdminNotifications();
+      refreshPasswordResetBadge();
+    }, 30000);
+  </script>
+</body>
+</html>

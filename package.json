@@ -1,0 +1,10 @@
+{
+  "name": "emrsystem-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix EMRsystem run build",
+    "start": "npm --prefix EMRsystem start",
+    "dev": "npm --prefix EMRsystem run dev"
+  }
+}

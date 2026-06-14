@@ -1,0 +1,556 @@
+/* Professional EMR System Design */
+:root {
+  --bg-primary: #f0f4f8;
+  --bg-secondary: #ffffff;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --border: #e2e8f0;
+  --primary: #0066cc;
+  --primary-light: #e6f0ff;
+  --success: #2ecc71;
+  --success-light: #e8f8f5;
+  --warning: #f39c12;
+  --warning-light: #fef5e7;
+  --danger: #e74c3c;
+  --danger-light: #fadbd8;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.12);
+  --max-width: 1200px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.required-marker {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.password-rules,
+.provider-setup-note,
+.verification-note,
+.report-filter-bar {
+  border: 1px solid rgba(145, 49, 76, 0.18);
+  border-radius: var(--radius);
+  background: rgba(145, 49, 76, 0.06);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 0.85rem 1rem;
+}
+
+.password-rules ul {
+  margin: 0.5rem 0 0 1.1rem;
+  padding: 0;
+}
+
+.report-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.signature-line {
+  display: inline-block;
+  min-width: 140px;
+  border-bottom: 1px solid currentColor;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.container {
+  padding: 2rem 1rem 3rem;
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ============ BRAND & HEADER ============ */
+.brand {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  background: linear-gradient(135deg, #0066cc, #0052a3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  overflow-wrap: anywhere;
+}
+
+.brand p {
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* ============ CARD STYLING ============ */
+.card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+  width: 100%;
+}
+
+.registration-page .card {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.card h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 3px solid var(--primary);
+  padding-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.card h3 {
+  margin: 1.5rem 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ============ TABS ============ */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  background: var(--bg-primary);
+  padding: 0.5rem;
+  border-radius: var(--radius);
+}
+
+.tab {
+  border: 2px solid transparent;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 0.9rem 1.2rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: var(--transition);
+}
+
+.tab:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.tab.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+/* ============ FORM ============ */
+.form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.field label {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.field input[type="checkbox"] {
+  width: 1.1rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.field input[type="file"] {
+  max-width: 100%;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.field input::placeholder {
+  color: #a0aec0;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 3.2rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.35rem;
+  height: 2.35rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.password-toggle:hover,
+.password-toggle:focus {
+  background: var(--primary-light);
+  color: var(--primary);
+  outline: none;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.privacy-notice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: #f8fbff;
+  color: var(--text-primary);
+}
+
+.privacy-notice__icon {
+  position: relative;
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid var(--primary);
+  border-radius: 1rem 1rem 1.4rem 1.4rem;
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy-notice__icon::before {
+  content: "";
+  position: absolute;
+  width: 1rem;
+  height: 0.85rem;
+  border: 2px solid var(--primary);
+  border-radius: 0.2rem;
+  bottom: 0.85rem;
+}
+
+.privacy-notice__icon::after {
+  content: "";
+  position: absolute;
+  width: 0.75rem;
+  height: 0.65rem;
+  border: 2px solid var(--primary);
+  border-bottom: 0;
+  border-radius: 0.6rem 0.6rem 0 0;
+  bottom: 1.55rem;
+}
+
+.privacy-notice h2 {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+  color: var(--primary);
+  font-size: 1rem;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.privacy-notice p {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.privacy-notice ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.privacy-notice strong {
+  color: var(--text-primary);
+}
+
+.privacy-consent {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.privacy-consent input[type="checkbox"] {
+  width: 1.1rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.2rem 0 0;
+}
+
+.privacy-consent label {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ============ BUTTONS ============ */
+button.primary {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary), #0052a3);
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+button.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
+}
+
+button.primary:active {
+  transform: translateY(0);
+}
+
+button.secondary {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+button.secondary:hover {
+  background: var(--primary-light);
+}
+
+/* ============ MESSAGES ============ */
+.hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.hidden {
+  display: none;
+}
+
+/* ============ FOOTER ============ */
+.footer {
+  margin-top: 3rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .brand h1 {
+    font-size: 1.7rem;
+  }
+
+  .brand p {
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .card {
+    padding: 1.15rem;
+    border-radius: 10px;
+  }
+
+  .card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+  }
+
+  .form {
+    gap: 1rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    font-size: 16px;
+    padding: 0.8rem 0.85rem;
+  }
+
+  .password-field input {
+    padding-right: 3rem;
+  }
+
+  #ocrModal {
+    align-items: flex-start !important;
+    padding: 0.75rem;
+    overflow-y: auto;
+  }
+
+  #ocrModal > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    padding: 1rem !important;
+    margin: 0 auto;
+  }
+
+  #ocrModal h2 {
+    font-size: 1.2rem;
+  }
+
+  #ocrModal button.primary {
+    min-height: 3rem;
+    padding: 0.85rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  #ocrModal > div > div:last-child {
+    flex-direction: column;
+  }
+
+  .privacy-notice {
+    grid-template-columns: 1fr;
+    padding: 0.9rem;
+  }
+
+  .privacy-notice__icon {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .container {
+    padding-inline: 0.5rem;
+  }
+
+  .card {
+    padding: 1rem 0.85rem;
+  }
+
+  .brand h1 {
+    font-size: 1.55rem;
+  }
+
+  .footer {
+    font-size: 0.78rem;
+  }
+}
