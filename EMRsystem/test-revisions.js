@@ -490,6 +490,8 @@ test('deployment config uses API_PUBLIC_URL, SMTP, Google client ID, and secret-
   const envExample = readProjectFile('.env.example');
   const deploymentDoc = readProjectFile('DEPLOYMENT.md');
   const packageJson = JSON.parse(readProjectFile('package.json'));
+  const pythonRequirementsPath = path.join(projectDir, 'requirements.txt');
+  const deploymentRequirementsPath = path.join(projectDir, 'REQUIREMENTS.md');
 
   assertIncludes(apiConfig, 'window.PROFELECT_GOOGLE_CLIENT_ID', 'Frontend exposes Google client ID config');
   assertIncludes(envExample, 'API_PUBLIC_URL=https://RENDER_SERVICE_HOST.onrender.com', 'Env example documents API public URL');
@@ -501,6 +503,8 @@ test('deployment config uses API_PUBLIC_URL, SMTP, Google client ID, and secret-
   assertIncludes(deploymentDoc, 'SMTP_HOST', 'Deployment docs explain SMTP configuration');
   assert.ok(packageJson.dependencies.nodemailer, 'Package includes nodemailer dependency');
   assert.ok(packageJson.dependencies['google-auth-library'], 'Package includes google-auth-library dependency');
+  assert.ok(!fs.existsSync(pythonRequirementsPath), 'Deployment docs must not use requirements.txt because Railway detects it as Python');
+  assert.ok(fs.existsSync(deploymentRequirementsPath), 'System requirements documentation is kept as markdown');
 });
 
 test('public and patient QR codes expire and can be regenerated', () => {
