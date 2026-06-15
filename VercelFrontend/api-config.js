@@ -1,8 +1,13 @@
 (function () {
-  const renderApiUrl = 'https://emrsystem-9gng.onrender.com';
+  const productionApiUrl = 'https://emrsystem.up.railway.app';
   const googleClientId = '745311488374-q7j7ggcbvrvin3qu2ahuq80akmbtmtvp.apps.googleusercontent.com';
-  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  const apiBaseUrl = isLocalhost ? 'http://localhost:3000' : renderApiUrl.replace(/\/$/, '');
+  const hostname = window.location.hostname;
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(hostname);
+  const apiBaseUrl = isLocalhost
+    ? 'http://localhost:3000'
+    : hostname.endsWith('.vercel.app')
+      ? productionApiUrl
+      : window.location.origin;
 
   window.PROFELECT_API_BASE_URL = apiBaseUrl;
   window.PROFELECT_GOOGLE_CLIENT_ID = googleClientId;

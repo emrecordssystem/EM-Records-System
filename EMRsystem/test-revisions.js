@@ -494,6 +494,10 @@ test('deployment config uses API_PUBLIC_URL, SMTP, Google client ID, and secret-
   const deploymentRequirementsPath = path.join(projectDir, 'REQUIREMENTS.md');
 
   assertIncludes(apiConfig, 'window.PROFELECT_GOOGLE_CLIENT_ID', 'Frontend exposes Google client ID config');
+  assertIncludes(apiConfig, "const productionApiUrl = 'https://emrsystem.up.railway.app';", 'Frontend uses the current Railway API host for remote static frontends');
+  assertIncludes(apiConfig, "hostname.endsWith('.vercel.app')", 'Remote static frontends call the configured Railway API host');
+  assertIncludes(apiConfig, 'window.location.origin', 'Railway-hosted frontend uses same-origin API calls for fast QR loading');
+  assert.doesNotMatch(apiConfig, /emrsystem-9gng\.onrender\.com/, 'Frontend no longer calls the retired Render backend');
   assertIncludes(envExample, 'API_PUBLIC_URL=https://RENDER_SERVICE_HOST.onrender.com', 'Env example documents API public URL');
   assertIncludes(envExample, 'FRONTEND_URL=https://VERCEL_FRONTEND_HOST.vercel.app', 'Env example documents frontend URL');
   assertIncludes(envExample, 'DATABASE_URL=postgresql://USERNAME:PASSWORD@HOST:5432/DATABASE?sslmode=require', 'Env example uses placeholder database URL');
@@ -519,6 +523,7 @@ test('public and patient QR codes expire and can be regenerated', () => {
   const patientQrRoute = extractRouteBlock(serverSource, "app.get('/api/patient-qr/:token'", 'Patient QR validation route is present');
   const openPatientFromQrText = extractFunctionBlock(doctorHtml, 'openPatientFromQrText');
 
+  assertMatches(indexHtml, /\.qr-box img\[hidden\]\s*\{[\s\S]*?display:\s*none\s*;/, 'Hidden QR image stays hidden while the QR API is loading');
   assertIncludes(publicQrRoute, 'db.createInvite({ token, expiresAt, createdBy: null })', 'Public QR creates expiring invite token');
   assert.doesNotMatch(publicQrRoute, /revokePublicRegistrationInvites/, 'Public QR GET does not mutate existing public QR tokens');
   assertIncludes(publicQrRegenerateRoute, 'db.revokePublicRegistrationInvites()', 'Public QR POST regeneration invalidates previous unused public QR tokens');
