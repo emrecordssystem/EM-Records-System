@@ -8,16 +8,29 @@ const QRCode = require('qrcode');
 const sharp = require('sharp');
 const Tesseract = require('tesseract.js');
 const FormData = require('form-data');
+const nodemailer = require('nodemailer');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+const API_PUBLIC_URL = (process.env.API_PUBLIC_URL || '').replace(/\/$/, '');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleOAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || 'Asia/Manila';
 const APP_RELEASE = 'admin-approval-registration';
 const MAX_RECORD_FILE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_RECORD_FILE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const MAX_DOCTOR_CONSULTATIONS_PER_DAY = 8;
+const REGISTRATION_EXPIRY_HOURS = 24;
+const REGISTRATION_REMINDER_HOURS = 20;
+const PATIENT_QR_EXPIRY_MINUTES = 15;
+const PUBLIC_REGISTRATION_QR_EXPIRY_MINUTES = 60;
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const allowedSexValues = new Set(['male', 'female']);
+const allowedCivilStatusValues = new Set(['single', 'married', 'widowed', 'divorced', 'separated']);
 
 function getFrontendUrl(req) {
   return FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
@@ -55,6 +68,33 @@ function formatDateOnly({ year, month, day }) {
 
 function getDaysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
+}
+
+function normalizeDoctorAvailabilityInput(availableDateValue, timeSlotsValue) {
+  const availableDate = String(availableDateValue || '').trim();
+  if (!DATE_ONLY_PATTERN.test(availableDate)) {
+    return { error: 'Availability date must use YYYY-MM-DD format.' };
+  }
+
+  const parsedDate = parseDateOnly(availableDate);
+  if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) {
+    return { error: 'Availability date must be a valid calendar date.' };
+  }
+
+  if (!Array.isArray(timeSlotsValue) || timeSlotsValue.length === 0) {
+    return { error: 'At least one availability time slot is required.' };
+  }
+
+  const timeSlots = [];
+  for (const slot of timeSlotsValue) {
+    const normalizedSlot = String(slot || '').trim();
+    if (!TIME_PATTERN.test(normalizedSlot)) {
+      return { error: 'Availability time slots must use HH:mm format.' };
+    }
+    timeSlots.push(normalizedSlot);
+  }
+
+  return { availableDate, timeSlots };
 }
 
 function addDaysToDateOnly(dateString, daysToAdd) {
@@ -98,14 +138,82 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
-function getPatientInputValidationMessage({ firstName, middleName, lastName, mobile, philhealthNumber, nationalIdNumber }) {
+function toPublicUser(user) {
+  return {
+    id: user.id,
+    role: user.role,
+    email: user.email,
+    displayName: user.display_name || user.displayName || null,
+  };
+}
+
+function getPatientInputValidationMessage(input) {
+  const { firstName, middleName, lastName, mobile, dateOfBirth, sex, civilStatus, address, address2, philhealthNumber, nationalIdNumber, securityQuestion, securityAnswer } = input;
   if (!isValidPersonName(firstName)) return 'First name can only contain letters.';
   if (!isValidPersonName(middleName, { required: false })) return 'Middle name can only contain letters.';
   if (!isValidPersonName(lastName)) return 'Last name can only contain letters.';
+  const normalizedDate = String(dateOfBirth || '').trim();
+  if (!DATE_ONLY_PATTERN.test(normalizedDate)) return 'Date of birth must use YYYY-MM-DD format.';
+  const parsedDate = parseDateOnly(normalizedDate);
+  if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) return 'Date of birth must be a valid calendar date.';
+  if (isFutureDateString(normalizedDate)) return 'Date of birth cannot be in the future.';
+  if (!allowedSexValues.has(String(sex || '').trim().toLowerCase())) return 'Sex must be male or female.';
+  if (!allowedCivilStatusValues.has(String(civilStatus || '').trim().toLowerCase())) return 'Civil status is invalid.';
+  if (!String(address || '').trim()) return 'Address is required.';
+  if (String(address || '').trim().length > 200) return 'Address must be 200 characters or fewer.';
+  if (String(address2 || '').trim().length > 200) return 'Address 2 must be 200 characters or fewer.';
   if (!isDigitsOnly(mobile, { required: false })) return 'Mobile number can only contain numbers.';
   if (!isDigitsOnly(philhealthNumber, { required: false })) return 'PhilHealth number can only contain numbers.';
   if (!isDigitsOnly(nationalIdNumber, { required: false })) return 'National ID number can only contain numbers.';
+  if (!String(securityQuestion || '').trim()) return 'Security question is required.';
+  if (String(securityQuestion || '').trim().length > 160) return 'Security question must be 160 characters or fewer.';
+  if (!String(securityAnswer || '').trim()) return 'Security answer is required.';
+  if (String(securityAnswer || '').trim().length > 120) return 'Security answer must be 120 characters or fewer.';
   return '';
+}
+
+const allowedPatientProfileUpdateFields = new Set(['first_name', 'middle_name', 'last_name', 'email', 'mobile', 'address', 'address2']);
+
+function normalizePatientProfileUpdates(updates) {
+  const normalized = {};
+  for (const key of Object.keys(updates || {})) {
+    if (!allowedPatientProfileUpdateFields.has(key)) {
+      return { error: `Unknown patient profile field: ${key}` };
+    }
+  }
+
+  if ('first_name' in updates) {
+    if (!isValidPersonName(updates.first_name)) return { error: 'First name can only contain letters.' };
+    normalized.first_name = String(updates.first_name).trim();
+  }
+  if ('middle_name' in updates) {
+    if (!isValidPersonName(updates.middle_name, { required: false })) return { error: 'Middle name can only contain letters.' };
+    normalized.middle_name = String(updates.middle_name || '').trim();
+  }
+  if ('last_name' in updates) {
+    if (!isValidPersonName(updates.last_name)) return { error: 'Last name can only contain letters.' };
+    normalized.last_name = String(updates.last_name).trim();
+  }
+  if ('email' in updates) {
+    if (!isValidEmail(updates.email)) return { error: 'Please enter a valid email address.' };
+    normalized.email = String(updates.email).trim().toLowerCase();
+  }
+  if ('mobile' in updates) {
+    if (!isDigitsOnly(updates.mobile, { required: false })) return { error: 'Mobile number can only contain numbers.' };
+    normalized.mobile = String(updates.mobile || '').trim() || null;
+  }
+  if ('address' in updates) {
+    if (!String(updates.address || '').trim()) return { error: 'Address is required.' };
+    if (String(updates.address).trim().length > 200) return { error: 'Address must be 200 characters or fewer.' };
+    normalized.address = String(updates.address).trim();
+  }
+  if ('address2' in updates) {
+    if (String(updates.address2 || '').trim().length > 200) return { error: 'Address 2 must be 200 characters or fewer.' };
+    normalized.address2 = String(updates.address2 || '').trim();
+  }
+
+  if (!Object.keys(normalized).length) return { error: 'No valid patient profile updates supplied.' };
+  return { updates: normalized };
 }
 
 function getPasswordValidationMessage(password) {
@@ -118,16 +226,219 @@ function getPasswordValidationMessage(password) {
   return '';
 }
 
+function normalizeConsultationStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return '';
+  if (value === 'approved') return 'scheduled';
+  if (value === 'rejected') return 'denied';
+  if (['no-show', 'no_show'].includes(value)) return 'marked-no-show';
+  return value;
+}
+
 function createEmailVerificationToken() {
   return crypto.randomBytes(24).toString('hex');
+}
+
+async function verifyGoogleIdToken(idToken) {
+  if (!googleOAuthClient || !GOOGLE_CLIENT_ID) {
+    const error = new Error('Google sign-in is not configured.');
+    error.statusCode = 503;
+    throw error;
+  }
+  let ticket;
+  try {
+    ticket = await googleOAuthClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+  } catch (err) {
+    const error = new Error('Invalid Google credential.');
+    error.statusCode = 401;
+    throw error;
+  }
+  const payload = ticket.getPayload();
+  if (!payload || typeof payload.sub !== 'string' || !payload.sub.trim() || typeof payload.email !== 'string' || !isValidEmail(payload.email) || payload.email_verified !== true) {
+    const error = new Error('Google account email must be verified.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return {
+    googleSub: payload.sub,
+    email: String(payload.email).toLowerCase(),
+    displayName: payload.name || payload.email,
+  };
 }
 
 function addHours(date, hours) {
   return new Date(date.getTime() + (hours * 60 * 60 * 1000));
 }
 
+function getRequestHost(req) {
+  return String(req.hostname || req.get('host') || '').split(':')[0].toLowerCase();
+}
+
+function isLocalRequest(req) {
+  const host = getRequestHost(req);
+  const remoteAddress = String(req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || '');
+  const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+  const isLoopback = remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1' || remoteAddress.startsWith('127.');
+  return isLocalHost && isLoopback;
+}
+
+function getApiPublicUrl(req) {
+  if (API_PUBLIC_URL) return API_PUBLIC_URL;
+
+  const requestHost = String(req.get('host') || req.hostname || '').trim();
+  if (isLocalRequest(req)) {
+    return `${req.protocol}://${requestHost}`;
+  }
+
+  throw new Error('API_PUBLIC_URL is required for non-local verification links.');
+}
+
 function getVerificationUrl(req, token) {
-  return `${getFrontendUrl(req)}/api/verify-email?token=${encodeURIComponent(token)}`;
+  const publicUrl = getApiPublicUrl(req);
+  return `${API_PUBLIC_URL || publicUrl}/api/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function shouldExposeLocalVerificationLink(req) {
+  return !hasSmtpConfig() && isLocalRequest(req);
+}
+
+function hasSmtpConfig() {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_FROM);
+}
+
+function createSmtpTransport() {
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
+  const transportConfig = {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure,
+  };
+  if (process.env.SMTP_USER || process.env.SMTP_PASS) {
+    transportConfig.auth = {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    };
+  }
+  return nodemailer.createTransport(transportConfig);
+}
+
+async function sendAccountEmail(options) {
+  const { to, subject, text, type, userId } = options;
+  const safeLocalMessage = type === 'email_verification'
+    ? `${subject}: Email delivery is not available. Please ask clinic staff to verify SMTP setup or use the local development verification link when testing on localhost.`
+    : `${subject}: Email delivery is not available. Please contact clinic staff.`;
+  const smtpConfigured = hasSmtpConfig();
+
+  if (smtpConfigured) {
+    try {
+      const createTransport = createSmtpTransport;
+      const transporter = createTransport();
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        subject,
+        text,
+      });
+      return { delivered: true, localNotification: false };
+    } catch (err) {
+      console.warn(`[EMAIL FALLBACK] SMTP delivery failed for ${to}: ${err.message}`);
+    }
+  }
+
+  if (userId) {
+    await db.createNotification({ userId, type, message: safeLocalMessage });
+  }
+  const fallbackReason = smtpConfigured ? 'SMTP delivery failed' : 'SMTP is not configured';
+  console.warn(`[LOCAL EMAIL] ${fallbackReason}. ${to}: ${subject}`);
+  return { delivered: false, localNotification: Boolean(userId) };
+}
+
+async function enforcePatientRegistrationLifecycle(now = new Date()) {
+  const nowIso = now.toISOString();
+  const reminderCutoffIso = addHours(now, REGISTRATION_EXPIRY_HOURS - REGISTRATION_REMINDER_HOURS).toISOString();
+  const reminderCandidates = await db.getPatientRegistrationsForReminder(nowIso, reminderCutoffIso);
+
+  for (const user of reminderCandidates) {
+    await db.createNotification({
+      userId: user.id,
+      type: 'registration_confirmation_reminder',
+      message: `Please verify your email before ${formatDisplayDateTime(user.email_verification_expires_at)} to keep your registration active.`,
+    });
+    await db.markUserRegistrationNoticeSent(user.id);
+  }
+
+  const expiredUsers = await db.getExpiredPatientRegistrations(nowIso);
+  for (const user of expiredUsers) {
+    await db.markUserRegistrationForfeited(user.id);
+    await db.createNotification({
+      userId: user.id,
+      type: 'registration_forfeited',
+      message: 'Your registration was forfeited because the email verification deadline expired. Please register again or contact the clinic.',
+    });
+  }
+
+  return { reminded: reminderCandidates.length, forfeited: expiredUsers.length };
+}
+
+async function requireActiveVerifiedPatient(userId) {
+  const user = await db.getUserById(userId);
+  if (!user || user.role !== 'patient') {
+    const error = new Error('Only patients can access this endpoint.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (user.status !== 'active') {
+    const error = new Error(user.status === 'pending' ? 'Your registration is waiting for admin approval.' : 'Your account is inactive. Please contact the clinic.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (Number(user.email_verified || 0) !== 1) {
+    const error = new Error('Verify your email before continuing.');
+    error.statusCode = 403;
+    throw error;
+  }
+  return user;
+}
+
+async function requirePatientProfileReady(userId) {
+  const user = await requireActiveVerifiedPatient(userId);
+  const profile = await db.getPatientProfile(userId);
+  if (!profile) {
+    const error = new Error('Complete your patient profile before continuing.');
+    error.statusCode = 428;
+    throw error;
+  }
+  return { user, profile };
+}
+
+async function requireQrRequesterAccess(requesterId, patientId) {
+  const requester = await db.getUserById(requesterId);
+  if (!requester || requester.status !== 'active') {
+    const error = new Error('Only authorized clinic staff, doctors, or the patient can validate this QR code.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (requester.role === 'patient') {
+    if (String(requester.id) !== String(patientId)) {
+      const error = new Error('Patients can only validate their own QR code.');
+      error.statusCode = 403;
+      throw error;
+    }
+    await requirePatientProfileReady(patientId);
+    return requester;
+  }
+
+  if (!['admin', 'doctor', 'staff'].includes(requester.role)) {
+    const error = new Error('Only authorized clinic staff, doctors, or the patient can validate this QR code.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return requester;
 }
 
 function formatDisplayDateTime(value) {
@@ -204,12 +515,61 @@ app.use(express.static(path.join(__dirname)));
 
 app.get('/api/public-registration-qr', async (req, res) => {
   try {
-    const registrationUrl = `${getFrontendUrl(req)}/register.html`;
+    const now = new Date();
+    const publicInvite = (await db.getAllInvites()).find((invite) => (
+      !invite.created_by
+      && !invite.used
+      && invite.expires_at
+      && new Date(invite.expires_at) > now
+    ));
+    let token = publicInvite?.token;
+    let expiresAt = publicInvite?.expires_at;
+    if (!token || !expiresAt) {
+      token = crypto.randomUUID();
+      expiresAt = new Date(Date.now() + PUBLIC_REGISTRATION_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
+      await db.createInvite({ token, expiresAt, createdBy: null });
+    }
+
+    const registrationUrl = `${getFrontendUrl(req)}/register.html?token=${encodeURIComponent(token)}`;
     const qrDataUrl = await QRCode.toDataURL(registrationUrl, { width: 320, margin: 1 });
-    return res.json({ success: true, registrationUrl, qrDataUrl });
+    return res.json({ success: true, registrationUrl, qrDataUrl, expiresAt });
   } catch (err) {
     console.error('public registration qr error', err);
     return res.status(500).json({ success: false, message: 'Could not generate registration QR code.' });
+  }
+});
+
+app.post('/api/public-registration-qr/regenerate', async (req, res) => {
+  try {
+    const requesterId = parseInt(req.body.requesterId, 10);
+    if (!requesterId) {
+      return res.status(400).json({ success: false, message: 'requesterId is required.' });
+    }
+    const requesterPassword = String(req.body.requesterPassword || '');
+    if (!requesterPassword) {
+      return res.status(400).json({ success: false, message: 'requesterPassword is required.' });
+    }
+    const user = await db.getUserById(requesterId);
+    if (!user || user.status !== 'active' || !['admin', 'staff'].includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Only active admin or staff users may regenerate the public registration QR code.' });
+    }
+
+    const authenticatedRequester = await db.validateCredentials(user.email, requesterPassword);
+    if (!authenticatedRequester || String(authenticatedRequester.id) !== String(user.id)) {
+      return res.status(403).json({ success: false, message: 'Unable to authenticate requester.' });
+    }
+
+    await db.revokePublicRegistrationInvites();
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + PUBLIC_REGISTRATION_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
+    await db.createInvite({ token, expiresAt, createdBy: null });
+
+    const registrationUrl = `${getFrontendUrl(req)}/register.html?token=${encodeURIComponent(token)}`;
+    const qrDataUrl = await QRCode.toDataURL(registrationUrl, { width: 320, margin: 1 });
+    return res.json({ success: true, registrationUrl, qrDataUrl, expiresAt });
+  } catch (err) {
+    console.error('public registration qr regeneration error', err);
+    return res.status(500).json({ success: false, message: 'Could not regenerate registration QR code.' });
   }
 });
 
@@ -221,30 +581,14 @@ app.post('/api/register', async (req, res) => {
       password,
       displayName,
       inviteToken,
-      username,
-      firstName,
-      middleName,
-      lastName,
-      suffix,
-      mobile,
-      dateOfBirth,
-      age,
-      sex,
-      civilStatus,
-      address,
-      address2,
-      philhealthNumber,
-      idNumber,
-      idType,
-      license,
-      licenseNumber,
-      position,
-      securityQuestion,
-      securityAnswer,
     } = req.body;
 
     if (!role || !email || !password) {
       return res.status(400).json({ success: false, message: 'role, email, and password are required.' });
+    }
+
+    if (role !== 'patient') {
+      return res.status(403).json({ success: false, message: 'Only patient self-registration is available publicly.' });
     }
 
     if (!isValidEmail(email)) {
@@ -256,112 +600,48 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, message: passwordMessage });
     }
 
-    const allowedRoles = ['admin', 'doctor', 'patient', 'staff'];
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: 'Invalid role.' });
-    }
-
     const existing = await db.getUserByEmail(email);
     if (existing) {
       return res.status(409).json({ success: false, message: 'Email already registered.' });
     }
 
     let invite = null;
-    let patientAge = null;
     if (role === 'patient') {
-      // Invite token is optional for patient registration (clinic workflow).
-      // If provided, validate and mark as used; if not valid, registration can still proceed.
+      if (req.body.privacyConsent !== true) {
+        return res.status(400).json({ success: false, message: 'Data privacy consent is required.' });
+      }
+
       if (inviteToken) {
         invite = await db.getInviteByToken(inviteToken);
         const now = new Date();
         if (!invite || invite.used || new Date(invite.expires_at) < now) {
-          invite = null; // ignore invalid/expired invite
+          return res.status(400).json({ success: false, message: 'Invitation token is invalid or has expired.' });
         }
       }
-
-      const missingFields = [];
-      if (!username) missingFields.push('username');
-      if (!firstName) missingFields.push('firstName');
-      if (!lastName) missingFields.push('lastName');
-      if (!dateOfBirth) missingFields.push('dateOfBirth');
-      if (!sex) missingFields.push('sex');
-      if (!civilStatus) missingFields.push('civilStatus');
-      if (!address) missingFields.push('address');
-      if (!securityQuestion) missingFields.push('securityQuestion');
-      if (!securityAnswer) missingFields.push('securityAnswer');
-
-      if (missingFields.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Missing required patient profile fields: ${missingFields.join(', ')}`,
-        });
-      }
-
-      if (isFutureDateString(dateOfBirth)) {
-        return res.status(400).json({ success: false, message: 'Date of birth cannot be in the future.' });
-      }
-
-      const validationMessage = getPatientInputValidationMessage({ firstName, middleName, lastName, mobile, philhealthNumber, nationalIdNumber: idNumber });
-      if (validationMessage) {
-        return res.status(400).json({ success: false, message: validationMessage });
-      }
-
-      patientAge = calculateAge(dateOfBirth);
-    }
-
-    if (role === 'doctor' && !(license || licenseNumber)) {
-      return res.status(400).json({ success: false, message: 'Doctor license number is required.' });
-    }
-
-    if (role === 'staff' && !position) {
-      return res.status(400).json({ success: false, message: 'Staff position is required.' });
     }
 
     const verificationToken = role === 'patient' ? createEmailVerificationToken() : null;
     const verificationExpiresAt = role === 'patient' ? addHours(new Date(), 24).toISOString() : null;
+    const verificationUrl = role === 'patient' ? getVerificationUrl(req, verificationToken) : null;
 
     const user = await db.createUser({
-      role,
+      role: 'patient',
       email,
       password,
       displayName,
-      emailVerified: role !== 'patient',
-      status: role === 'patient' ? 'pending' : 'active',
+      emailVerified: false,
+      status: 'pending',
       emailVerificationToken: verificationToken,
       emailVerificationExpiresAt: verificationExpiresAt,
     });
 
-    let patientProfile = null;
-    let doctorProfile = null;
-    let staffProfile = null;
     if (role === 'patient') {
-      patientProfile = await db.createPatientProfile({
+      await sendAccountEmail({
+        to: email,
+        subject: 'Verify your EMR registration',
+        text: `Verify your email within 24 hours: ${verificationUrl}`,
+        type: 'email_verification',
         userId: user.id,
-        username,
-        firstName,
-        middleName,
-        lastName,
-        suffix,
-        email,
-        mobile,
-        dateOfBirth,
-        age: patientAge,
-        sex,
-        civilStatus,
-        address,
-        address2,
-        philhealthNumber,
-        idType,
-        nationalIdNumber: idNumber,
-        securityQuestion,
-        securityAnswer,
-      });
-
-      const verificationUrl = getVerificationUrl(req, verificationToken);
-      await db.createNotification({
-        userId: user.id,
-        type: 'account_created',
-        message: `Your account was created and is pending approval. Verify your email within 24 hours: ${verificationUrl}`,
       });
       await db.createNotification({
         userId: user.id,
@@ -376,7 +656,7 @@ app.post('/api/register', async (req, res) => {
             userId: adminUser.id,
             targetUserId: user.id,
             type: 'patient_registration_pending',
-            message: `${displayName || email} submitted a new patient registration for approval.`,
+            message: `${displayName || email} submitted a new patient account for verification and approval.`,
           })
         )
       );
@@ -386,20 +666,6 @@ app.post('/api/register', async (req, res) => {
       }
     }
 
-    if (role === 'doctor') {
-      doctorProfile = await db.createDoctorProfile({
-        userId: user.id,
-        licenseNumber: license || licenseNumber,
-      });
-    }
-
-    if (role === 'staff') {
-      staffProfile = await db.createStaffProfile({
-        userId: user.id,
-        position,
-      });
-    }
-
     await writeAuditLog({
       userId: user.id,
       userRole: user.role,
@@ -407,13 +673,11 @@ app.post('/api/register', async (req, res) => {
       resource: 'User Management',
       details: `Created ${role} account ${email}.`,
     });
+    const localVerificationUrl = role === 'patient' ? (shouldExposeLocalVerificationLink(req) ? verificationUrl : undefined) : undefined;
     return res.status(201).json({
       success: true,
-      user,
-      patientProfile,
-      doctorProfile,
-      staffProfile,
-      verificationUrl: role === 'patient' ? getVerificationUrl(req, verificationToken) : undefined,
+      user: toPublicUser(user),
+      verificationUrl: localVerificationUrl,
       verificationExpiresAt,
       message: role === 'patient'
         ? 'Registration submitted. Verify your email within 24 hours, then wait for admin approval before signing in.'
@@ -425,21 +689,60 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+function renderEmailVerificationResultPage(payload) {
+  const { success, message } = payload;
+  const statusLabel = success ? 'Email verified' : 'Email verification failed';
+  const redirectDelaySeconds = success ? 4 : 6;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="${redirectDelaySeconds};url=/login.html" />
+  <title>${statusLabel}</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+    main { width: min(92vw, 520px); padding: 2rem; border-radius: 18px; background: #fff; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.14); text-align: center; }
+    h1 { margin: 0 0 0.75rem; color: ${success ? '#166534' : '#991b1b'}; }
+    p { line-height: 1.5; color: #475569; }
+    a { color: #2563eb; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${statusLabel}</h1>
+    <p>${message}</p>
+    <p>You will be redirected to the login page shortly.</p>
+    <p><a href="/login.html">Go to login now</a></p>
+  </main>
+</body>
+</html>`;
+}
+
+function sendEmailVerificationResult(req, res, statusCode, payload) {
+  if (req.accepts('html') && !req.accepts('json')) {
+    return res.status(statusCode).type('html').send(renderEmailVerificationResultPage(payload));
+  }
+  return res.status(statusCode).json(payload);
+}
+
 app.get('/api/verify-email', async (req, res) => {
   try {
     const token = String(req.query.token || '').trim();
     if (!token) {
-      return res.status(400).json({ success: false, message: 'Verification token is required.' });
+      return sendEmailVerificationResult(req, res, 400, { success: false, message: 'Verification token is required.' });
     }
+
+    await enforcePatientRegistrationLifecycle();
 
     const user = await db.getUserByVerificationToken(token);
     if (!user) {
-      return res.status(400).json({ success: false, message: 'Verification link is invalid or already used.' });
+      return sendEmailVerificationResult(req, res, 400, { success: false, message: 'Verification link is invalid or already used.' });
     }
 
     if (user.email_verification_expires_at && new Date(user.email_verification_expires_at) < new Date()) {
       await db.markUserRegistrationForfeited(user.id);
-      return res.status(400).json({ success: false, message: 'Verification link expired. Your registration has been marked forfeited.' });
+      return sendEmailVerificationResult(req, res, 400, { success: false, message: 'Verification link expired. Your registration has been marked forfeited.' });
     }
 
     await db.markUserEmailVerified(user.id);
@@ -449,10 +752,104 @@ app.get('/api/verify-email', async (req, res) => {
       message: 'Your email has been verified. Please wait for admin approval before signing in.',
     });
 
-    return res.json({ success: true, message: 'Email verified. Please wait for admin approval before signing in.' });
+    return sendEmailVerificationResult(req, res, 200, { success: true, message: 'Email verified. Please wait for admin approval before signing in.' });
   } catch (err) {
     console.error('verify email error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return sendEmailVerificationResult(req, res, 500, { success: false, message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/patient/profile-completion', async (req, res) => {
+  try {
+    const userId = parseInt(req.body.userId, 10);
+    const {
+      username,
+      firstName,
+      middleName,
+      lastName,
+      suffix,
+      mobile,
+      dateOfBirth,
+      sex,
+      civilStatus,
+      address,
+      address2,
+      philhealthNumber,
+      idNumber,
+      idType,
+      securityQuestion,
+      securityAnswer,
+    } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required.' });
+    }
+
+    const user = await requireActiveVerifiedPatient(userId);
+    const existingProfile = await db.getPatientProfile(userId);
+    if (existingProfile) {
+      return res.status(409).json({ success: false, message: 'Patient profile is already complete.' });
+    }
+
+    const missingFields = [];
+    if (!firstName) missingFields.push('firstName');
+    if (!lastName) missingFields.push('lastName');
+    if (!dateOfBirth) missingFields.push('dateOfBirth');
+    if (!sex) missingFields.push('sex');
+    if (!civilStatus) missingFields.push('civilStatus');
+    if (!address) missingFields.push('address');
+    if (!securityQuestion) missingFields.push('securityQuestion');
+    if (!securityAnswer) missingFields.push('securityAnswer');
+    if (missingFields.length) {
+      return res.status(400).json({ success: false, message: `Missing required patient profile fields: ${missingFields.join(', ')}` });
+    }
+
+    const validationMessage = getPatientInputValidationMessage({ firstName, middleName, lastName, mobile, dateOfBirth, sex, civilStatus, address, address2, philhealthNumber, nationalIdNumber: idNumber, securityQuestion, securityAnswer });
+    if (validationMessage) {
+      return res.status(400).json({ success: false, message: validationMessage });
+    }
+
+    const normalizedUsername = String(username || '').trim() || user.email.split('@')[0];
+    let patientProfile;
+    try {
+      patientProfile = await db.createPatientProfile({
+        userId,
+        username: normalizedUsername,
+        firstName: String(firstName).trim(),
+        middleName: String(middleName || '').trim(),
+        lastName: String(lastName).trim(),
+        suffix: String(suffix || '').trim(),
+        email: user.email,
+        mobile: String(mobile || '').trim(),
+        dateOfBirth: String(dateOfBirth).trim(),
+        age: calculateAge(dateOfBirth),
+        sex: String(sex).trim().toLowerCase(),
+        civilStatus: String(civilStatus).trim().toLowerCase(),
+        address: String(address).trim(),
+        address2: String(address2 || '').trim(),
+        philhealthNumber: String(philhealthNumber || '').trim(),
+        idType: String(idType || 'patient').trim(),
+        nationalIdNumber: String(idNumber || '').trim(),
+        securityQuestion: String(securityQuestion).trim(),
+        securityAnswer: String(securityAnswer).trim(),
+      });
+    } catch (profileErr) {
+      if (profileErr.code === '23505') {
+        return res.status(409).json({ success: false, message: 'Patient username or profile identifier is already in use.' });
+      }
+      throw profileErr;
+    }
+
+    await db.createNotification({
+      userId,
+      type: 'patient_profile_completed',
+      message: 'Your patient profile is complete. You may now request consultations and use your patient QR code.',
+    });
+
+    return res.status(201).json({ success: true, patientProfile });
+  } catch (err) {
+    console.error('patient profile completion error', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -464,16 +861,13 @@ app.post('/api/assessment', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId and answers are required.' });
     }
 
-    const user = await db.getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
-    }
+    await requirePatientProfileReady(userId);
 
     const assessment = await db.createPatientAssessment({ userId, assessment: answers });
     return res.status(201).json({ success: true, assessment });
   } catch (err) {
     console.error('assessment error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -481,14 +875,30 @@ app.post('/api/assessment', async (req, res) => {
 
 app.post('/api/consultation-request', async (req, res) => {
   try {
-    const { userId, concerns, consultationDate, consultationTime } = req.body;
+    let { userId, concerns, consultationDate, consultationTime } = req.body;
     if (!userId || !concerns) {
       return res.status(400).json({ success: false, message: 'userId and concerns are required.' });
     }
 
-    const user = await db.getUserById(userId);
-    if (!user || user.role !== 'patient') {
-      return res.status(403).json({ success: false, message: 'Only patients can submit consultation requests.' });
+    const { user } = await requirePatientProfileReady(userId);
+
+    consultationDate = String(consultationDate || '').trim();
+    consultationTime = String(consultationTime || '').trim();
+
+    if (consultationTime && !consultationDate) {
+      return res.status(400).json({ success: false, message: 'Consultation date is required when start time is supplied.' });
+    }
+    if (consultationDate && !DATE_ONLY_PATTERN.test(consultationDate)) {
+      return res.status(400).json({ success: false, message: 'Consultation date must use YYYY-MM-DD format.' });
+    }
+    if (consultationDate) {
+      const parsedDate = parseDateOnly(consultationDate);
+      if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) {
+        return res.status(400).json({ success: false, message: 'Consultation date must be a valid calendar date.' });
+      }
+    }
+    if (consultationTime && !TIME_PATTERN.test(consultationTime)) {
+      return res.status(400).json({ success: false, message: 'Consultation start time must use HH:mm format.' });
     }
 
     const today = getLocalDateString();
@@ -578,12 +988,13 @@ app.get('/api/my-consultations', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
 
+    await requirePatientProfileReady(userId);
     await notifyOverduePendingConsultations();
     const consultations = await db.getConsultationsByPatient(userId);
     return res.json({ success: true, consultations });
   } catch (err) {
     console.error('my consultations error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -595,10 +1006,7 @@ app.post('/api/my-consultations/:id/cancel', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId and consultation ID are required.' });
     }
 
-    const user = await db.getUserById(userId);
-    if (!user || user.role !== 'patient') {
-      return res.status(403).json({ success: false, message: 'Only patients can cancel consultations.' });
-    }
+    const { user } = await requirePatientProfileReady(userId);
 
     const consultation = await db.getConsultationById(consultationId);
     if (!consultation || String(consultation.patient_id) !== String(userId)) {
@@ -632,7 +1040,7 @@ app.post('/api/my-consultations/:id/cancel', async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     console.error('cancel consultation error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -676,6 +1084,8 @@ app.get('/api/notifications', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
 
+    await enforcePatientRegistrationLifecycle();
+
     await notifyOverduePendingConsultations();
     const notifications = await db.getNotificationsByUser(userId);
     return res.json({ success: true, notifications });
@@ -698,22 +1108,67 @@ app.post('/api/notifications/:id/read', async (req, res) => {
 
 app.get('/api/my-qr', async (req, res) => {
   try {
-    const userId = req.query.userId;
+    const userId = parseInt(req.query.userId, 10);
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
-
-    const user = await db.getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
+    const requesterId = parseInt(req.query.requesterId, 10);
+    if (!requesterId) {
+      return res.status(400).json({ success: false, message: 'requesterId is required.' });
+    }
+    if (String(requesterId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Patients can only generate their own QR code.' });
     }
 
-    const qrData = `EMR-Patient:${userId}`;
-    const qrDataUrl = await QRCode.toDataURL(qrData);
-    return res.json({ success: true, qrDataUrl });
+    await requirePatientProfileReady(userId);
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + PATIENT_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
+    await db.createPatientQrToken({ patientId: userId, token, expiresAt });
+    const qrUrl = `${getFrontendUrl(req)}/api/patient-qr/${encodeURIComponent(token)}`;
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 1 });
+    return res.json({ success: true, qrDataUrl, qrUrl, expiresAt });
   } catch (err) {
     console.error('my qr error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
+  }
+});
+
+app.get('/api/patient-qr/:token', async (req, res) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'QR token is required.' });
+    }
+    const requesterId = parseInt(req.query.requesterId, 10);
+    if (!requesterId) {
+      return res.status(400).json({ success: false, message: 'requesterId is required.' });
+    }
+
+    const invalidQrMessage = 'This patient QR code is invalid or expired. Please ask the patient to regenerate it.';
+    const qrToken = await db.getPatientQrToken(token);
+    if (!qrToken || qrToken.revoked_at || new Date(qrToken.expires_at) < new Date()) {
+      return res.status(410).json({ success: false, message: invalidQrMessage });
+    }
+
+    try {
+      await requirePatientProfileReady(qrToken.patient_id);
+    } catch (patientErr) {
+      if (patientErr.statusCode) {
+        return res.status(410).json({ success: false, message: invalidQrMessage });
+      }
+      throw patientErr;
+    }
+    await requireQrRequesterAccess(requesterId, qrToken.patient_id);
+
+    return res.json({
+      success: true,
+      patientId: qrToken.patient_id,
+      expiresAt: qrToken.expires_at,
+      message: 'QR code is valid. Authorized staff or doctors may look up this patient in the EMR system.',
+    });
+  } catch (err) {
+    console.error('patient qr validation error', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -723,6 +1178,8 @@ app.get('/api/my-emr', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
+
+    await requirePatientProfileReady(userId);
 
     // Get requesting user info
     const requestingUser = await db.getUserById(userId);
@@ -749,7 +1206,7 @@ app.get('/api/my-emr', async (req, res) => {
     return res.json({ success: true, emr: profile });
   } catch (err) {
     console.error('my emr error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -778,6 +1235,9 @@ app.get('/api/patient-record-files', async (req, res) => {
     if (!user || !['patient', 'doctor'].includes(user.role)) {
       return res.status(403).json({ success: false, message: 'Only patients and doctors can view record files.' });
     }
+    if (user.role === 'patient') {
+      await requirePatientProfileReady(userId);
+    }
 
     if (user.role === 'patient' && String(user.id) !== String(patientId)) {
       return res.status(403).json({ success: false, message: 'Patients can only view their own files.' });
@@ -787,7 +1247,7 @@ app.get('/api/patient-record-files', async (req, res) => {
     return res.json({ success: true, files });
   } catch (err) {
     console.error('record files list error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -797,6 +1257,8 @@ app.post('/api/patient-record-files', async (req, res) => {
     if (!userId || !fileName || !fileData) {
       return res.status(400).json({ success: false, message: 'userId, fileName, and fileData are required.' });
     }
+
+    await requirePatientProfileReady(userId);
 
     const user = await db.getUserById(userId);
     if (!user || user.role !== 'patient') {
@@ -845,7 +1307,7 @@ app.post('/api/patient-record-files', async (req, res) => {
     return res.status(201).json({ success: true, file });
   } catch (err) {
     console.error('record file upload error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -857,6 +1319,14 @@ app.get('/api/patient-record-files/:id', async (req, res) => {
     }
 
     const user = await db.getUserById(userId);
+    if (!user) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this file.' });
+    }
+
+    if (user.role === 'patient') {
+      await requirePatientProfileReady(userId);
+    }
+
     const file = await db.getPatientRecordFileById(req.params.id);
     if (!file) {
       return res.status(404).json({ success: false, message: 'File not found.' });
@@ -881,7 +1351,7 @@ app.get('/api/patient-record-files/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('record file detail error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -892,6 +1362,8 @@ app.get('/api/profile', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
 
+    await requirePatientProfileReady(userId);
+
     const profile = await db.getPatientProfile(userId);
     if (!profile) {
       return res.status(404).json({ success: false, message: 'Profile not found.' });
@@ -900,7 +1372,7 @@ app.get('/api/profile', async (req, res) => {
     return res.json({ success: true, profile });
   } catch (err) {
     console.error('profile error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -911,11 +1383,88 @@ app.put('/api/profile', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId and updates are required.' });
     }
 
-    await db.updatePatientProfile(userId, updates);
+    await requirePatientProfileReady(userId);
+
+    const { updates: normalizedUpdates, error } = normalizePatientProfileUpdates(updates);
+    if (error) {
+      return res.status(400).json({ success: false, message: error });
+    }
+
+    await db.updatePatientProfile(userId, normalizedUpdates);
     return res.json({ success: true });
   } catch (err) {
     console.error('update profile error', err);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
+  }
+});
+
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    if (typeof req.body.credential !== 'string' || !req.body.credential.trim()) {
+      return res.status(400).json({ success: false, message: 'Google credential is required.' });
+    }
+    const credential = req.body.credential.trim();
+
+    const googleAccount = await verifyGoogleIdToken(credential);
+    const linkedUser = await db.getUserByGoogleSub(googleAccount.googleSub);
+    let user = linkedUser;
+
+    if (!user) {
+      const existingByEmail = await db.getUserByEmail(googleAccount.email);
+      if (existingByEmail) {
+        if (existingByEmail.google_sub && existingByEmail.google_sub !== googleAccount.googleSub) {
+          return res.status(409).json({ success: false, message: 'This email is linked to another Google account.' });
+        }
+        await db.linkUserGoogleSub(existingByEmail.id, googleAccount.googleSub);
+        user = await db.getUserById(existingByEmail.id);
+      }
+    }
+
+    if (!user) {
+      if (req.body.privacyConsent !== true) {
+        return res.status(400).json({ success: false, message: 'Data privacy consent is required.' });
+      }
+
+      user = await db.createUser({
+        role: 'patient',
+        email: googleAccount.email,
+        password: crypto.randomUUID(),
+        displayName: googleAccount.displayName,
+        emailVerified: true,
+        status: 'pending',
+        googleSub: googleAccount.googleSub,
+      });
+      const admins = await db.getAllUsers({ role: 'admin', status: 'active' });
+      await Promise.all(admins.map((adminUser) => db.createNotification({
+        userId: adminUser.id,
+        targetUserId: user.id,
+        type: 'patient_registration_pending',
+        message: `${googleAccount.displayName || googleAccount.email} created a Google patient account for admin approval.`,
+      })));
+      return res.status(201).json({
+        success: true,
+        requiresApproval: true,
+        user: toPublicUser(user),
+        message: 'Google account created. Please wait for clinic approval before signing in.',
+      });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ success: false, message: 'Your account is waiting for admin approval or is inactive.' });
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      userRole: user.role,
+      action: 'login',
+      resource: 'Authentication',
+      details: `Google login for ${user.email}.`,
+    });
+
+    return res.json({ success: true, user: toPublicUser(user) });
+  } catch (err) {
+    console.error('google auth error', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
   }
 });
 
@@ -930,6 +1479,8 @@ app.post('/api/login', async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     }
+
+    await enforcePatientRegistrationLifecycle();
 
     const account = await db.getUserByEmail(email);
     if (account && account.status === 'pending') {
@@ -970,7 +1521,7 @@ app.post('/api/login', async (req, res) => {
     });
 
     // In a real system, issue a session or token here.
-    return res.status(200).json({ success: true, user: { id: user.id, role: user.role, email: user.email, displayName: user.display_name } });
+    return res.status(200).json({ success: true, user: toPublicUser(user) });
   } catch (err) {
     console.error('login error', err);
     return res.status(500).json({ success: false, message: 'Internal server error.' });
@@ -1140,10 +1691,139 @@ app.get('/api/staff/consultations', async (req, res) => {
   }
 });
 
+app.post('/api/staff/consultations', async (req, res) => {
+  try {
+    const userId = parseInt(req.body.userId, 10);
+    const patientId = parseInt(req.body.patientId, 10);
+    const hasDoctorId = req.body.doctorId !== undefined && req.body.doctorId !== null && String(req.body.doctorId).trim() !== '';
+    const doctorId = hasDoctorId ? parseInt(req.body.doctorId, 10) : null;
+    const concerns = String(req.body.concerns || '').trim();
+    const consultationDate = String(req.body.consultationDate || '').trim();
+    const consultationTime = String(req.body.consultationTime || '').trim();
+    const consultationTimeEnd = String(req.body.consultationTimeEnd || '').trim();
+    const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+    const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const isScheduledWalkIn = Boolean(consultationDate && consultationTime);
+
+    if (!userId || !patientId || !concerns) {
+      return res.status(400).json({ success: false, message: 'userId, patientId, and concerns are required.' });
+    }
+
+    if (consultationTime && !consultationDate) {
+      return res.status(400).json({ success: false, message: 'Consultation date is required when start time is supplied.' });
+    }
+    if (consultationTimeEnd && !consultationTime) {
+      return res.status(400).json({ success: false, message: 'Consultation start time is required when end time is supplied.' });
+    }
+    if (consultationDate && !DATE_ONLY_PATTERN.test(consultationDate)) {
+      return res.status(400).json({ success: false, message: 'Consultation date must use YYYY-MM-DD format.' });
+    }
+    if (consultationDate) {
+      const parsedDate = parseDateOnly(consultationDate);
+      if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) {
+        return res.status(400).json({ success: false, message: 'Consultation date must be a valid calendar date.' });
+      }
+    }
+    if (consultationTime && !TIME_PATTERN.test(consultationTime)) {
+      return res.status(400).json({ success: false, message: 'Consultation start time must use HH:mm format.' });
+    }
+    if (consultationTimeEnd && !TIME_PATTERN.test(consultationTimeEnd)) {
+      return res.status(400).json({ success: false, message: 'Consultation end time must use HH:mm format.' });
+    }
+    if (consultationTimeEnd && consultationTimeEnd <= consultationTime) {
+      return res.status(400).json({ success: false, message: 'Consultation end time must be after start time.' });
+    }
+
+    const user = await db.getUserById(userId);
+    if (!user || !['staff', 'admin'].includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Only staff or admins may create walk-in consultations.' });
+    }
+
+    let patient = null;
+    try {
+      const readyPatient = await requirePatientProfileReady(patientId);
+      patient = readyPatient.user;
+    } catch (patientErr) {
+      return res.status(patientErr.statusCode || 400).json({ success: false, message: patientErr.statusCode === 428 ? 'Patient profile must be complete before creating a walk-in consultation.' : patientErr.message });
+    }
+
+    const today = getLocalDateString();
+    if (consultationDate && consultationDate < today) {
+      return res.status(400).json({ success: false, message: 'Consultation date cannot be in the past.' });
+    }
+
+    if (hasDoctorId && (!doctorId || Number.isNaN(doctorId))) {
+      return res.status(400).json({ success: false, message: 'Doctor user not found.' });
+    }
+
+    const doctor = hasDoctorId ? await db.getUserById(doctorId) : await db.getDoctorUser();
+    if (!doctor) {
+      return res.status(hasDoctorId ? 400 : 500).json({ success: false, message: hasDoctorId ? 'Doctor user not found.' : 'No doctor available.' });
+    }
+    if (doctor.role !== 'doctor') {
+      return res.status(400).json({ success: false, message: 'Doctor user not found.' });
+    }
+
+    if (isScheduledWalkIn) {
+      const availability = await db.getDoctorAvailability();
+      const hasPublishedAvailability = availability.some((slot) => {
+        const isRequestedDoctorSlot = String(slot.doctor_id) === String(doctor.id) && slot.available_date === consultationDate;
+        if (!isRequestedDoctorSlot) return false;
+        const slots = typeof slot.available_time_slots === 'string'
+          ? JSON.parse(slot.available_time_slots || '[]')
+          : (slot.available_time_slots || []);
+        return slots.includes(consultationTime);
+      });
+
+      if (!hasPublishedAvailability) {
+        return res.status(400).json({ success: false, message: 'This doctor does not have published availability for the selected date and time.' });
+      }
+
+      await ensureDoctorDailyCapacity({ doctorId: doctor.id, consultationDate });
+      await ensureDoctorSlotAvailable({ doctorId: doctor.id, consultationDate, consultationTime });
+    }
+
+    const consultation = await db.createConsultation({
+      patientId,
+      doctorId: doctor.id,
+      concerns,
+      consultationDate: isScheduledWalkIn ? consultationDate : null,
+      consultationTime: isScheduledWalkIn ? consultationTime : null,
+      consultationTimeEnd: isScheduledWalkIn ? consultationTimeEnd || null : null,
+      consultationSource: 'walk-in',
+      status: isScheduledWalkIn ? 'scheduled' : 'pending',
+    });
+
+    await db.createNotification({
+      userId: patientId,
+      type: 'walk_in_consultation_created',
+      message: isScheduledWalkIn
+        ? `Clinic staff created a walk-in consultation for ${consultationDate} at ${consultationTime}.`
+        : 'Clinic staff created a walk-in consultation record for you.',
+    });
+
+    if (doctor?.id) {
+      await db.createNotification({
+        userId: doctor.id,
+        targetUserId: patientId,
+        type: 'walk_in_consultation_assigned',
+        message: isScheduledWalkIn
+          ? `Clinic staff scheduled a walk-in consultation for ${patient.display_name || patient.email} on ${consultationDate} at ${consultationTime}.`
+          : `Clinic staff created a pending walk-in consultation for ${patient.display_name || patient.email}.`,
+      });
+    }
+
+    return res.status(201).json({ success: true, consultation, doctor_schedule_changed: isScheduledWalkIn });
+  } catch (err) {
+    console.error('staff create walk-in consultation error', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Internal server error.' });
+  }
+});
+
 app.put('/api/consultations/:id/schedule', async (req, res) => {
   try {
     const consultationId = req.params.id;
-    const { userId, consultationDate, consultationTime, consultationTimeEnd, notes, status } = req.body;
+    let { userId, consultationDate, consultationTime, consultationTimeEnd, notes, status } = req.body;
 
     if (!userId || !consultationId || !consultationDate || !consultationTime) {
       return res.status(400).json({ success: false, message: 'userId, consultation ID, date, and start time are required.' });
@@ -1159,7 +1839,46 @@ app.put('/api/consultations/:id/schedule', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultation not found.' });
     }
 
+    consultationDate = String(consultationDate || '').trim();
+    consultationTime = String(consultationTime || '').trim();
+    consultationTimeEnd = String(consultationTimeEnd || '').trim();
+
+    if (!DATE_ONLY_PATTERN.test(consultationDate)) {
+      return res.status(400).json({ success: false, message: 'Consultation date must use YYYY-MM-DD format.' });
+    }
+    const parsedDate = parseDateOnly(consultationDate);
+    if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) {
+      return res.status(400).json({ success: false, message: 'Consultation date must be a valid calendar date.' });
+    }
+    const today = getLocalDateString();
+    if (consultationDate < today) {
+      return res.status(400).json({ success: false, message: 'Consultation date cannot be in the past.' });
+    }
+    if (!TIME_PATTERN.test(consultationTime)) {
+      return res.status(400).json({ success: false, message: 'Consultation start time must use HH:mm format.' });
+    }
+    if (consultationTimeEnd && !TIME_PATTERN.test(consultationTimeEnd)) {
+      return res.status(400).json({ success: false, message: 'Consultation end time must use HH:mm format.' });
+    }
+    if (consultationTimeEnd && consultationTimeEnd <= consultationTime) {
+      return res.status(400).json({ success: false, message: 'Consultation end time must be after start time.' });
+    }
+
     const targetDoctorId = user.role === 'doctor' ? user.id : consultation.doctor_id;
+    const availability = await db.getDoctorAvailability();
+    const hasPublishedAvailability = availability.some((slot) => {
+      const isRequestedDoctorSlot = String(slot.doctor_id) === String(targetDoctorId) && slot.available_date === consultationDate;
+      if (!isRequestedDoctorSlot) return false;
+      const slots = typeof slot.available_time_slots === 'string'
+        ? JSON.parse(slot.available_time_slots || '[]')
+        : (slot.available_time_slots || []);
+      return slots.includes(consultationTime);
+    });
+
+    if (!hasPublishedAvailability) {
+      return res.status(400).json({ success: false, message: 'This doctor does not have published availability for the selected date and time.' });
+    }
+
     await ensureDoctorDailyCapacity({
       doctorId: targetDoctorId,
       consultationDate,
@@ -1172,10 +1891,11 @@ app.put('/api/consultations/:id/schedule', async (req, res) => {
       excludeConsultationId: consultationId,
     });
 
+    const normalizedStatus = normalizeConsultationStatus(status) || 'scheduled';
     const updates = {
       consultation_date: consultationDate,
       consultation_time: consultationTime,
-      status: status || 'scheduled',
+      status: normalizedStatus,
     };
     if (consultationTimeEnd) updates.consultation_time_end = consultationTimeEnd;
     if (notes) updates.notes = notes;
@@ -1186,8 +1906,8 @@ app.put('/api/consultations/:id/schedule', async (req, res) => {
     const actor = user.role === 'doctor' ? 'doctor' : 'clinic staff';
     await db.createNotification({
       userId: consultation.patient_id,
-      type: status === 'denied' ? 'schedule_disapproved' : 'schedule_approved',
-      message: status === 'denied'
+      type: normalizedStatus === 'denied' ? 'schedule_disapproved' : 'schedule_approved',
+      message: normalizedStatus === 'denied'
         ? 'Your consultation schedule was disapproved. Please contact the clinic or request a new schedule.'
         : `Your consultation schedule was approved by ${actor} for ${consultationDate} at ${consultationTime}${consultationTimeEnd ? ` - ${consultationTimeEnd}` : ''}.`,
     });
@@ -1295,6 +2015,7 @@ app.get('/api/admin/reports/:type', async (req, res) => {
       search: req.query.search,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
+      includeAllConsultations: type === 'consultations',
     });
     if (type === 'patient-history') {
       reportData.patientHistory = await db.getPatientHistoryReport({
@@ -1332,6 +2053,8 @@ app.get('/api/admin/users', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId is required.' });
     }
+
+    await enforcePatientRegistrationLifecycle();
 
     const user = await db.getUserById(userId);
     if (!user || user.role !== 'admin') {
@@ -1384,8 +2107,8 @@ app.post('/api/admin/users', async (req, res) => {
       middleName,
       lastName,
       suffix,
-      mobile,
       dateOfBirth,
+      mobile,
       age,
       sex,
       civilStatus,
@@ -1402,6 +2125,11 @@ app.post('/api/admin/users', async (req, res) => {
 
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+
+    const passwordMessage = getPasswordValidationMessage(password);
+    if (passwordMessage) {
+      return res.status(400).json({ success: false, message: passwordMessage });
     }
 
     const allowedRoles = ['admin', 'doctor', 'patient', 'staff'];
@@ -1422,7 +2150,7 @@ app.post('/api/admin/users', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Staff position is required.' });
     }
 
-    const user = await db.createUser({ role, email, password, displayName, emailVerified: role !== 'patient' });
+    const user = await db.createUser({ role, email, password, displayName, emailVerified: true });
     let patientProfile = null;
     let doctorProfile = null;
     let staffProfile = null;
@@ -1441,7 +2169,6 @@ app.post('/api/admin/users', async (req, res) => {
         username: username || email.split('@')[0],
         firstName,
         lastName,
-        mobile,
         dateOfBirth,
         sex,
         civilStatus,
@@ -1462,7 +2189,19 @@ app.post('/api/admin/users', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Date of birth cannot be in the future.' });
       }
 
-      const validationMessage = getPatientInputValidationMessage({ firstName, middleName, lastName, mobile, philhealthNumber });
+      const validationMessage = getPatientInputValidationMessage({
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth,
+        mobile,
+        sex,
+        civilStatus,
+        address,
+        philhealthNumber,
+        securityQuestion: requiredPatientFields.securityQuestion,
+        securityAnswer: requiredPatientFields.securityAnswer,
+      });
       if (validationMessage) {
         await db.deleteUserCascade(user.id);
         return res.status(400).json({ success: false, message: validationMessage });
@@ -1478,8 +2217,8 @@ app.post('/api/admin/users', async (req, res) => {
         lastName,
         suffix,
         email,
-        mobile,
         dateOfBirth,
+        mobile,
         age: patientAge,
         sex,
         civilStatus,
@@ -1668,10 +2407,11 @@ app.post('/api/admin/users/:id/status', async (req, res) => {
       return res.json({ success: true, user: rejectedUser });
     }
 
-    await db.updateUserStatus(targetUserId, status);
     if (status === 'active' && target.role === 'patient' && Number(target.email_verified || 0) !== 1) {
-      await db.markUserEmailVerified(targetUserId);
+      return res.status(400).json({ success: false, message: 'Verify the patient email before activating this account.' });
     }
+
+    await db.updateUserStatus(targetUserId, status);
     if (target.role === 'patient') {
       await db.createNotification({
         userId: targetUserId,
@@ -3867,7 +4607,10 @@ app.get('/api/doctor/consultations', async (req, res) => {
     }
 
     await notifyOverduePendingConsultations();
-    const consultations = await db.getConsultationsByDoctor(user.id);
+    const consultations = (await db.getConsultationsByDoctor(user.id)).map((consultation) => ({
+      ...consultation,
+      consultation_source: consultation.consultation_source || 'online',
+    }));
     return res.json({ success: true, consultations });
   } catch (err) {
     console.error('doctor consultations error', err);
@@ -3924,18 +4667,9 @@ app.put('/api/doctor/consultation/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultation not found.' });
     }
 
-    const normalizedStatus = status === 'approved'
-      ? 'scheduled'
-      : status === 'rejected'
-        ? 'denied'
-        : ['no-show', 'no_show', 'marked-no-show'].includes(status)
-          ? 'marked-no-show'
-          : status;
+    const normalizedStatus = normalizeConsultationStatus(status);
     const updates = {};
     if (normalizedStatus) updates.status = normalizedStatus;
-    if (consultationDate) updates.consultation_date = consultationDate;
-    if (consultationTime) updates.consultation_time = consultationTime;
-    if (consultationTimeEnd) updates.consultation_time_end = consultationTimeEnd;
     if (notes) updates.notes = notes;
     if (diagnosticResult !== undefined) {
       updates.diagnostic_result = String(diagnosticResult || '').trim();
@@ -3947,19 +4681,62 @@ app.put('/api/doctor/consultation/:id', async (req, res) => {
     }
     updates.doctor_id = userId;
 
-    const targetDate = consultationDate || existingConsultation.consultation_date;
-    if (targetDate && (consultationDate || normalizedStatus === 'scheduled')) {
+    const hasScheduleUpdate = consultationDate !== undefined || consultationTime !== undefined || consultationTimeEnd !== undefined || normalizedStatus === 'scheduled';
+    if (hasScheduleUpdate) {
+      const targetDate = String(consultationDate || existingConsultation.consultation_date || '').trim();
+      const targetStartTime = String(consultationTime || existingConsultation.consultation_time || '').trim();
+      const targetEndTime = String(consultationTimeEnd || existingConsultation.consultation_time_end || '').trim();
+
+      if (!DATE_ONLY_PATTERN.test(targetDate)) {
+        return res.status(400).json({ success: false, message: 'Consultation date must use YYYY-MM-DD format.' });
+      }
+      const parsedDate = parseDateOnly(targetDate);
+      if (!parsedDate || parsedDate.month < 1 || parsedDate.month > 12 || parsedDate.day < 1 || parsedDate.day > getDaysInMonth(parsedDate.year, parsedDate.month)) {
+        return res.status(400).json({ success: false, message: 'Consultation date must be a valid calendar date.' });
+      }
+      const today = getLocalDateString();
+      if (targetDate < today) {
+        return res.status(400).json({ success: false, message: 'Consultation date cannot be in the past.' });
+      }
+      if (!TIME_PATTERN.test(targetStartTime)) {
+        return res.status(400).json({ success: false, message: 'Consultation start time must use HH:mm format.' });
+      }
+      if (targetEndTime && !TIME_PATTERN.test(targetEndTime)) {
+        return res.status(400).json({ success: false, message: 'Consultation end time must use HH:mm format.' });
+      }
+      if (targetEndTime && targetEndTime <= targetStartTime) {
+        return res.status(400).json({ success: false, message: 'Consultation end time must be after start time.' });
+      }
+
+      const availability = await db.getDoctorAvailability();
+      const hasPublishedAvailability = availability.some((slot) => {
+        const isRequestedDoctorSlot = String(slot.doctor_id) === String(user.id) && slot.available_date === targetDate;
+        if (!isRequestedDoctorSlot) return false;
+        const slots = typeof slot.available_time_slots === 'string'
+          ? JSON.parse(slot.available_time_slots || '[]')
+          : (slot.available_time_slots || []);
+        return slots.includes(targetStartTime);
+      });
+
+      if (!hasPublishedAvailability) {
+        return res.status(400).json({ success: false, message: 'This doctor does not have published availability for the selected date and time.' });
+      }
+
       await ensureDoctorDailyCapacity({
-        doctorId: userId,
+        doctorId: user.id,
         consultationDate: targetDate,
         excludeConsultationId: consultationId,
       });
       await ensureDoctorSlotAvailable({
-        doctorId: userId,
+        doctorId: user.id,
         consultationDate: targetDate,
-        consultationTime: consultationTime || existingConsultation.consultation_time,
+        consultationTime: targetStartTime,
         excludeConsultationId: consultationId,
       });
+
+      updates.consultation_date = targetDate;
+      updates.consultation_time = targetStartTime;
+      if (targetEndTime) updates.consultation_time_end = targetEndTime;
     }
 
     await db.updateConsultation(consultationId, updates);
@@ -4031,11 +4808,17 @@ app.get('/api/doctor/report.diagnostics', handleDoctorDiagnosticsReport);
 app.post('/api/doctor/availability', async (req, res) => {
   try {
     const { userId, timeSlots, repeatMode, repeatCount } = req.body;
-    const availableDate = normalizeDateOnly(req.body.availableDate);
+    const availabilityInput = normalizeDoctorAvailabilityInput(req.body.availableDate, timeSlots);
 
-    if (!userId || !availableDate || !timeSlots || !Array.isArray(timeSlots)) {
+    if (!userId) {
       return res.status(400).json({ success: false, message: 'userId, availableDate, and timeSlots are required.' });
     }
+
+    if (availabilityInput.error) {
+      return res.status(400).json({ success: false, message: availabilityInput.error });
+    }
+
+    const { availableDate, timeSlots: normalizedTimeSlots } = availabilityInput;
 
     const user = await db.getUserById(userId);
     if (!user || user.role !== 'doctor') {
@@ -4052,7 +4835,7 @@ app.post('/api/doctor/availability', async (req, res) => {
         : mode === 'monthly'
           ? addMonthsToDateOnly(availableDate, index)
           : availableDate;
-      availability.push(await db.setDoctorAvailability({ doctorId: userId, availableDate: dateValue, timeSlots }));
+      availability.push(await db.setDoctorAvailability({ doctorId: userId, availableDate: dateValue, timeSlots: normalizedTimeSlots }));
       if (mode === 'none') break;
     }
 
@@ -4067,17 +4850,23 @@ async function handleUpdateDoctorAvailability(req, res) {
   try {
     const availabilityId = req.params.id;
     const { userId, timeSlots } = req.body;
-    const availableDate = normalizeDateOnly(req.body.availableDate);
-    if (!userId || !availabilityId || !availableDate || !Array.isArray(timeSlots) || timeSlots.length === 0) {
+    const availabilityInput = normalizeDoctorAvailabilityInput(req.body.availableDate, timeSlots);
+    if (!userId || !availabilityId) {
       return res.status(400).json({ success: false, message: 'userId, availability ID, date, and time slots are required.' });
     }
+
+    if (availabilityInput.error) {
+      return res.status(400).json({ success: false, message: availabilityInput.error });
+    }
+
+    const { availableDate, timeSlots: normalizedTimeSlots } = availabilityInput;
 
     const user = await db.getUserById(userId);
     if (!user || user.role !== 'doctor') {
       return res.status(403).json({ success: false, message: 'Only doctors can edit availability.' });
     }
 
-    await db.updateDoctorAvailability(availabilityId, { doctorId: userId, availableDate, timeSlots });
+    await db.updateDoctorAvailability(availabilityId, { doctorId: userId, availableDate, timeSlots: normalizedTimeSlots });
     return res.json({ success: true });
   } catch (err) {
     console.error('edit availability error', err);
@@ -4273,8 +5062,15 @@ if (require.main === module) {
 
 module.exports = {
   parsePhilippineIdOcr,
+  toPublicUser,
   getPasswordValidationMessage,
   createEmailVerificationToken,
+  verifyGoogleIdToken,
   getVerificationUrl,
   formatDisplayDateTime,
+  getPatientInputValidationMessage,
+  enforcePatientRegistrationLifecycle,
+  requireActiveVerifiedPatient,
+  requirePatientProfileReady,
+  sendAccountEmail,
 };

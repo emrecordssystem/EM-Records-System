@@ -128,6 +128,7 @@
   </style>
   <script src="api-config.js"></script>
   <script src="password-toggle.js" defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <main class="login-container">
@@ -161,6 +162,11 @@
 
         <p class="hint" id="formHint" style="display: none;"></p>
       </form>
+
+      <div id="googleSignInPanel" class="provider-setup-note" hidden>
+        <p style="margin-top:0;">Or sign in with your clinic-approved Google account.</p>
+        <div id="googleSignInButton"></div>
+      </div>
 
       <button type="button" id="showForgotPassword" class="forgot-link">Forgot password?</button>
 
@@ -211,17 +217,7 @@
         const data = await response.json();
 
         if (data.success) {
-          localStorage.setItem('authUser', JSON.stringify(data.user));
-
-          if (data.user.role === 'patient') {
-            window.location.href = 'dashboard.html';
-          } else if (data.user.role === 'doctor') {
-            window.location.href = 'doctor-dashboard.html';
-          } else if (data.user.role === 'staff') {
-            window.location.href = 'staff.html';
-          } else {
-            window.location.href = 'admin-dashboard.html';
-          }
+          redirectAuthenticatedUser(data.user);
         } else {
           formHint.textContent = data.message || 'Login failed';
           formHint.style.color = '#ef4444';
@@ -233,6 +229,60 @@
         formHint.style.display = 'block';
       }
     });
+
+    function redirectAuthenticatedUser(user) {
+      localStorage.setItem('authUser', JSON.stringify(user));
+      if (user.role === 'patient') {
+        window.location.href = 'dashboard.html';
+      } else if (user.role === 'doctor') {
+        window.location.href = 'doctor-dashboard.html';
+      } else if (user.role === 'staff') {
+        window.location.href = 'staff.html';
+      } else {
+        window.location.href = 'admin-dashboard.html';
+      }
+    }
+
+    async function handleGoogleCredential(response) {
+      const formHint = document.getElementById('formHint');
+      formHint.style.display = 'none';
+      try {
+        const resp = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: response.credential }),
+        });
+        const data = await resp.json();
+        if (!data.success || data.requiresApproval) {
+          formHint.textContent = data.message || 'Google sign-in requires clinic approval.';
+          formHint.style.color = data.requiresApproval ? '#475569' : '#ef4444';
+          formHint.style.display = 'block';
+          return;
+        }
+        redirectAuthenticatedUser(data.user);
+      } catch (err) {
+        formHint.textContent = `Google sign-in failed: ${err.message}`;
+        formHint.style.color = '#ef4444';
+        formHint.style.display = 'block';
+      }
+    }
+
+    function initializeGoogleSignIn() {
+      const clientId = window.PROFELECT_GOOGLE_CLIENT_ID;
+      if (!clientId || !window.google?.accounts?.id) return;
+      document.getElementById('googleSignInPanel').hidden = false;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(document.getElementById('googleSignInButton'), {
+        theme: 'outline',
+        size: 'large',
+        width: 320,
+      });
+    }
+
+    window.addEventListener('load', initializeGoogleSignIn);
 
     const forgotPasswordForm = document.getElementById('forgotPasswordForm');
     const resetHint = document.getElementById('resetHint');

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
   <script src="api-config.js"></script>
   <script src="password-toggle.js" defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="registration-page">
   <main class="container">
@@ -52,6 +53,24 @@
           Google email/social media registration is prepared for provider setup. For this local revision, register with your email and verify using the generated verification link.
         </div>
 
+        <div id="googleRegistrationPanel" class="provider-setup-note" hidden>
+          <strong>Google patient account:</strong>
+          <p>Create a patient account with Google. The clinic must still approve it before profile completion.</p>
+          <div id="googleRegistrationButton"></div>
+        </div>
+
+        <div class="provider-setup-note">
+          <strong>Account Verification First:</strong> Create your account and verify your email first. The clinic will approve your account before patient identity and medical profile details are saved.
+        </div>
+
+        <section id="postApprovalProfileNote" class="privacy-notice" aria-labelledby="profileAfterApprovalTitle">
+          <div class="privacy-notice__content">
+            <h2 id="profileAfterApprovalTitle">Profile Details After Approval</h2>
+            <p>Your National ID, address, date of birth, contact details, and medical security answers will be completed after your email is verified and the clinic activates your account.</p>
+          </div>
+        </section>
+
+        <div id="legacySelfRegistrationProfileFields" hidden>
         <!-- ID Scanning Section -->
         <h2>Verify Your Identity (National ID)</h2>
         <p class="hint" style="margin-bottom: 1rem;">Upload a photo of your National ID (PhilID) to auto-fill your information.</p>
@@ -178,6 +197,7 @@
           <label for="securityAnswer">Security Answer <span class="required-marker">*</span></label>
           <input type="text" id="securityAnswer" name="securityAnswer" required />
         </div>
+        </div>
 
         <!-- Data Privacy Notice -->
         <section class="privacy-notice" aria-labelledby="privacyNoticeTitle">
@@ -237,13 +257,57 @@
 
     let currentOcrData = null;
     let registrationSubmitted = false;
+    let activeInviteToken = inviteToken || '';
 
-    document.getElementById('inviteToken').value = inviteToken || '';
+    document.getElementById('inviteToken').value = activeInviteToken;
 
     function setHint(message, isError = false) {
       formHint.textContent = message;
       formHint.style.color = isError ? 'var(--danger)' : 'var(--muted)';
     }
+
+    async function handleGoogleRegistration(response) {
+      try {
+        if (!document.getElementById('dataPrivacyConsent').checked) {
+          setHint('❌ You must consent to the Data Privacy Act of 2012.', true);
+          document.getElementById('dataPrivacyConsent').focus();
+          return;
+        }
+        setHint('Processing Google account...');
+        const resp = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            credential: response.credential,
+            privacyConsent: document.getElementById('dataPrivacyConsent').checked,
+          }),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Google registration failed.');
+        registrationSubmitted = true;
+        alert(data.message || 'Google account submitted for clinic approval.');
+        window.location.href = 'login.html';
+      } catch (err) {
+        setHint(`Google registration failed: ${err.message}`, true);
+      }
+    }
+
+    function initializeGoogleRegistration() {
+      const clientId = window.PROFELECT_GOOGLE_CLIENT_ID;
+      if (!clientId || !window.google?.accounts?.id) return;
+      document.getElementById('googleRegistrationPanel').hidden = false;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleRegistration,
+      });
+      window.google.accounts.id.renderButton(document.getElementById('googleRegistrationButton'), {
+        theme: 'outline',
+        size: 'large',
+        width: 320,
+      });
+    }
+
+    window.addEventListener('load', initializeGoogleRegistration);
 
     function hasRegistrationProgress() {
       if (registrationSubmitted) return false;
@@ -555,7 +619,7 @@
 
     async function checkInvite() {
       if (!inviteToken) {
-        setHint('Please upload your National ID image, then complete the registration form.', false);
+        setHint('Create your account first. Profile details will be completed after email verification and clinic approval.', false);
         return;
       }
 
@@ -564,15 +628,23 @@
         const data = await resp.json();
 
         if (!data.success) {
-          setHint(`⚠️ ${data.message || 'Invite token is invalid or expired.'} You can still register, but this token will not be used.`, true);
+          activeInviteToken = '';
+          document.getElementById('inviteToken').value = '';
+          setHint(`⚠️ ${data.message || 'Invite token is invalid or expired.'} Continue registration without this token.`, true);
           return;
         }
 
+        activeInviteToken = inviteToken;
+        document.getElementById('inviteToken').value = activeInviteToken;
         setHint('✓ Invite token valid. Please complete the registration form.');
       } catch (err) {
-        setHint(`⚠️ Invite check failed: ${err.message}. You can still register.`, true);
+        activeInviteToken = '';
+        document.getElementById('inviteToken').value = '';
+        setHint(`⚠️ Invite check failed: ${err.message}. Continue registration without this token.`, true);
       }
     }
+
+    checkInvite();
 
     document.getElementById('cancelButton').addEventListener('click', () => {
       if (confirm('Cancel registration and return to login?')) {
@@ -585,15 +657,6 @@
         'email',
         'password',
         'confirmPassword',
-        'firstName',
-        'lastName',
-        'dateOfBirth',
-        'age',
-        'sex',
-        'civilStatus',
-        'address',
-        'securityQuestion',
-        'securityAnswer',
       ];
 
       const missing = [];
@@ -719,30 +782,13 @@
         return;
       }
 
-        const payload = {
+      const payload = {
         role: 'patient',
         email,
-        password: password,
+        password,
         privacyConsent: document.getElementById('dataPrivacyConsent').checked,
-        displayName: `${document.getElementById('firstName').value.trim()} ${document.getElementById('lastName').value.trim()}`,
-        inviteToken: inviteToken,
-        username: email.split('@')[0],
-        firstName: document.getElementById('firstName').value.trim(),
-        middleName: document.getElementById('middleName').value.trim(),
-        lastName: document.getElementById('lastName').value.trim(),
-        suffix: document.getElementById('suffix').value.trim(),
-        mobile: document.getElementById('mobile').value.trim(),
-        dateOfBirth: document.getElementById('dateOfBirth').value,
-        age: parseInt(document.getElementById('age').value) || 0,
-        sex: document.getElementById('sex').value,
-        civilStatus: document.getElementById('civilStatus').value,
-        address: document.getElementById('address').value.trim(),
-        address2: document.getElementById('address2').value.trim(),
-        philhealthNumber: document.getElementById('philhealthNumber').value.trim(),
-        idNumber: document.getElementById('idNumber').value.trim(),
-        idType: 'patient',
-        securityQuestion: document.getElementById('securityQuestion').value.trim(),
-        securityAnswer: document.getElementById('securityAnswer').value.trim(),
+        displayName: email.split('@')[0],
+        inviteToken: activeInviteToken,
       };
 
       try {

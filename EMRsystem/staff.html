@@ -269,13 +269,19 @@
       margin-top: 12px;
     }
 
-    .schedule-form input {
+    .schedule-form input,
+    .schedule-form textarea {
       min-height: 42px;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 8px 10px;
       font: inherit;
       background: #fff;
+    }
+
+    .schedule-form textarea {
+      min-height: 90px;
+      resize: vertical;
     }
 
     .notice {
@@ -285,6 +291,12 @@
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 12px;
+    }
+
+    .notice.success {
+      background: var(--green-soft);
+      border-color: #bbf7d0;
+      color: #166534;
     }
 
     .hidden {
@@ -452,6 +464,7 @@
       <nav class="tabs staff-side-nav" aria-label="Staff sections">
         <button class="tab active" type="button" data-view="schedules">Set Schedule</button>
         <button class="tab" type="button" data-view="consultations">View Consultations</button>
+        <button class="tab" type="button" data-view="walkin">Walk-in Capture</button>
         <button class="tab" type="button" data-view="invite">Patient Invite</button>
       </nav>
 
@@ -472,6 +485,22 @@
           <div id="consultationList" class="queue-list"></div>
         </section>
 
+        <section id="walkinView" class="panel hidden" aria-label="Walk-in consultation capture">
+          <div class="panel-head">
+            <h2>Walk-in Consultation Capture</h2>
+            <p class="muted">Create a walk-in consultation for an existing patient account.</p>
+          </div>
+          <form id="walkInForm" class="schedule-form">
+            <input type="number" name="patientId" placeholder="Patient User ID" required aria-label="Patient user ID" />
+            <input type="number" name="doctorId" placeholder="Doctor User ID (optional)" aria-label="Doctor user ID" />
+            <input type="date" name="consultationDate" aria-label="Consultation date" />
+            <input type="time" name="consultationTime" aria-label="Start time" />
+            <input type="time" name="consultationTimeEnd" aria-label="End time" />
+            <textarea name="concerns" placeholder="Walk-in concern" required aria-label="Walk-in concern"></textarea>
+            <button class="btn" type="submit">Create Walk-in Consultation</button>
+          </form>
+        </section>
+
         <section id="inviteView" class="panel hidden" aria-label="Patient invite">
           <div class="panel-head">
             <h2>Patient Registration Invite</h2>
@@ -486,6 +515,7 @@
                 <br /><br />
                 <label for="expiresAt"><strong>Expires At</strong></label>
                 <input id="expiresAt" class="input-like" type="text" readonly />
+                <p id="inviteMeta" class="muted"></p>
               </div>
               <div class="qr-box">
                 <img id="qrImage" alt="Patient invite QR code" style="max-width: 220px;" />
@@ -514,6 +544,7 @@
     const inviteEmpty = document.getElementById('inviteEmpty');
     const inviteLinkInput = document.getElementById('inviteLink');
     const expiresAtInput = document.getElementById('expiresAt');
+    const inviteMeta = document.getElementById('inviteMeta');
     const qrImage = document.getElementById('qrImage');
 
     const counters = {
@@ -528,8 +559,9 @@
       window.location.href = 'login.html';
     }
 
-    function setMessage(message) {
+    function setMessage(message, type = 'error') {
       statusMessage.textContent = message;
+      statusMessage.classList.toggle('success', type === 'success' && Boolean(message));
       statusMessage.classList.toggle('hidden', !message);
     }
 
@@ -762,6 +794,7 @@
       });
       document.getElementById('schedulesView').classList.toggle('hidden', viewName !== 'schedules');
       document.getElementById('consultationsView').classList.toggle('hidden', viewName !== 'consultations');
+      document.getElementById('walkinView').classList.toggle('hidden', viewName !== 'walkin');
       document.getElementById('inviteView').classList.toggle('hidden', viewName !== 'invite');
     }
 
@@ -771,6 +804,7 @@
       qrImage.src = '';
       inviteLinkInput.value = '';
       expiresAtInput.value = '';
+      inviteMeta.textContent = '';
     }
 
     async function generateInvite() {
@@ -786,9 +820,38 @@
         inviteEmpty.classList.add('hidden');
         inviteLinkInput.value = data.invite.inviteUrl;
         expiresAtInput.value = formatDateTime(data.invite.expiresAt);
+        inviteMeta.textContent = data.invite.expiresAt ? `Expires ${new Date(data.invite.expiresAt).toLocaleString()}` : '';
         qrImage.src = data.invite.qrDataUrl;
       } catch (err) {
         setMessage(`Could not create invite: ${err.message}`);
+      }
+    }
+
+    async function submitWalkInConsultation(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+
+      try {
+        setMessage('');
+        await apiRequest('/api/staff/consultations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: authUser.id,
+            patientId: formData.get('patientId'),
+            doctorId: formData.get('doctorId'),
+            consultationDate: formData.get('consultationDate'),
+            consultationTime: formData.get('consultationTime'),
+            consultationTimeEnd: formData.get('consultationTimeEnd'),
+            concerns: formData.get('concerns'),
+          }),
+        });
+        form.reset();
+        setMessage('Walk-in consultation created.', 'success');
+        await loadDashboard();
+      } catch (err) {
+        setMessage(`Could not create walk-in consultation: ${err.message}`);
       }
     }
 
@@ -799,6 +862,7 @@
     document.getElementById('logout').addEventListener('click', redirectToLogin);
     document.getElementById('generateInvite').addEventListener('click', generateInvite);
     document.getElementById('closeQr').addEventListener('click', closeInviteSection);
+    document.getElementById('walkInForm').addEventListener('submit', submitWalkInConsultation);
 
     if (!authUser || authUser.role !== 'staff') {
       redirectToLogin();

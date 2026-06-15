@@ -1,0 +1,34 @@
+name: EMR System CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install EMRsystem dependencies
+        run: npm --prefix EMRsystem install
+
+      - name: Run syntax checks
+        run: npm --prefix EMRsystem run check:syntax
+
+      - name: Run tests
+        run: npm --prefix EMRsystem test
+
+      - name: Verify static build
+        run: npm --prefix EMRsystem run build

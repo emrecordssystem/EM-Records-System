@@ -5,6 +5,7 @@
   "scripts": {
     "build": "npm --prefix EMRsystem run build",
     "start": "npm --prefix EMRsystem start",
-    "dev": "npm --prefix EMRsystem run dev"
+    "dev": "npm --prefix EMRsystem run dev",
+    "test": "npm --prefix EMRsystem test"
   }
 }

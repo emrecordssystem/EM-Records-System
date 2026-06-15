@@ -154,6 +154,8 @@ async function init() {
     )
   `);
 
+  await run(`ALTER TABLE invites ALTER COLUMN created_by DROP NOT NULL;`);
+
 await run(`
     CREATE TABLE IF NOT EXISTS patients (
       id SERIAL PRIMARY KEY,
@@ -191,6 +193,8 @@ await run(`
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires_at TEXT;`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT;`);
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;`);
+  await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_forfeited_at TEXT;`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_notice_sent_at TEXT;`);
   await run(`ALTER TABLE patients ALTER COLUMN mobile DROP NOT NULL;`);
@@ -366,6 +370,18 @@ await run(`
   `);
 
   await run(`
+    CREATE TABLE IF NOT EXISTS patient_qr_tokens (
+      id SERIAL PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      patient_id INTEGER NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (patient_id) REFERENCES users(id)
+    )
+  `);
+
+  await run(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id SERIAL PRIMARY KEY,
       user_id INTEGER,
@@ -389,6 +405,7 @@ async function createUser({
   status = 'active',
   emailVerificationToken = null,
   emailVerificationExpiresAt = null,
+  googleSub = null,
 }) {
   const passwordHash = await bcrypt.hash(password, 10);
   const createdAt = new Date().toISOString();
@@ -396,8 +413,8 @@ async function createUser({
   const emailVerifiedAt = emailVerified ? createdAt : null;
 
   const result = await run(
-    `INSERT INTO users (role, email, password_hash, display_name, status, email_verified, email_verification_token, email_verification_expires_at, email_verified_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [role, email.toLowerCase(), passwordHash, displayName || null, status, verifiedValue, emailVerificationToken, emailVerificationExpiresAt, emailVerifiedAt, createdAt]
+    `INSERT INTO users (role, email, password_hash, display_name, status, email_verified, email_verification_token, email_verification_expires_at, email_verified_at, google_sub, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [role, email.toLowerCase(), passwordHash, displayName || null, status, verifiedValue, emailVerificationToken, emailVerificationExpiresAt, emailVerifiedAt, googleSub || null, createdAt]
   );
 
   return {
@@ -410,6 +427,7 @@ async function createUser({
     emailVerificationToken,
     emailVerificationExpiresAt,
     emailVerifiedAt,
+    googleSub: googleSub || null,
     createdAt,
   };
 }
@@ -417,6 +435,15 @@ async function createUser({
 async function getUserByEmail(email) {
   const row = await get(`SELECT * FROM users WHERE email = ?`, [email.toLowerCase()]);
   return row ? row : null;
+}
+
+async function getUserByGoogleSub(googleSub) {
+  const row = await get(`SELECT * FROM users WHERE google_sub = ?`, [googleSub]);
+  return row || null;
+}
+
+async function linkUserGoogleSub(userId, googleSub) {
+  return run(`UPDATE users SET google_sub = ? WHERE id = ? AND (google_sub IS NULL OR google_sub = ?)`, [googleSub, userId, googleSub]);
 }
 
 async function validateCredentials(email, password) {
@@ -491,17 +518,17 @@ async function getDoctorUser() {
   return row ? row : null;
 }
 
-async function createInvite({ token, expiresAt, createdBy }) {
+async function createInvite({ token, expiresAt, createdBy = null }) {
   const createdAt = new Date().toISOString();
   const result = await run(
     `INSERT INTO invites (token, expires_at, created_by, created_at) VALUES (?, ?, ?, ?)`,
-    [token, expiresAt, createdBy, createdAt]
+    [token, expiresAt, createdBy || null, createdAt]
   );
   return {
     id: result.lastID,
     token,
     expiresAt,
-    createdBy,
+    createdBy: createdBy || null,
     createdAt,
     used: 0,
   };
@@ -514,6 +541,13 @@ async function getInviteByToken(token) {
 
 async function markInviteUsed(token) {
   return run(`UPDATE invites SET used = 1 WHERE token = ?`, [token]);
+}
+
+async function revokePublicRegistrationInvites() {
+  return run(
+    `UPDATE invites SET used = 1 WHERE created_by IS NULL AND used = 0 AND expires_at > ?`,
+    [new Date().toISOString()]
+  );
 }
 
 function generatePatientId(userId) {
@@ -555,7 +589,7 @@ async function createPatientProfile({
       last_name,
       suffix,
       email,
-      mobile || null,
+      mobile,
       date_of_birth,
       age,
       sex,
@@ -578,7 +612,7 @@ async function createPatientProfile({
       lastName,
       suffix || null,
       email,
-      mobile,
+      mobile || null,
       dateOfBirth,
       age,
       sex,
@@ -618,20 +652,43 @@ async function createPatientProfile({
   };
 }
 
-async function createConsultation({ patientId, doctorId, concerns, consultationDate, consultationTime, consultationSource = 'online' }) {
+async function createConsultation({ patientId, doctorId, concerns, consultationDate, consultationTime, consultationTimeEnd, consultationSource = 'online', status = 'pending' }) {
   const createdAt = new Date().toISOString();
   const updatedAt = createdAt;
   const source = ['walk-in', 'online'].includes(String(consultationSource || '').toLowerCase())
     ? String(consultationSource).toLowerCase()
     : 'online';
+  const normalizedStatus = KNOWN_CONSULTATION_STATUSES.includes(String(status || '').toLowerCase())
+    ? String(status).toLowerCase()
+    : 'pending';
   const result = await run(
-    `INSERT INTO consultations (patient_id, doctor_id, status, consultation_date, consultation_time, consultation_source, concerns, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [patientId, doctorId, 'pending', consultationDate || null, consultationTime || null, source, concerns, createdAt, updatedAt]
+    `INSERT INTO consultations (patient_id, doctor_id, status, consultation_date, consultation_time, consultation_time_end, consultation_source, concerns, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [patientId, doctorId, normalizedStatus, consultationDate || null, consultationTime || null, consultationTimeEnd || null, source, concerns, createdAt, updatedAt]
   );
-  return { id: result.lastID, patientId, doctorId, status: 'pending', consultationDate: consultationDate || null, consultationTime: consultationTime || null, consultationSource: source, concerns, createdAt, updatedAt };
+  return { id: result.lastID, patientId, doctorId, status: normalizedStatus, consultationDate: consultationDate || null, consultationTime: consultationTime || null, consultationTimeEnd: consultationTimeEnd || null, consultationSource: source, concerns, createdAt, updatedAt };
 }
 
 const ACTIVE_CONSULTATION_STATUS_SQL = `LOWER(TRIM(COALESCE(status, 'pending'))) NOT IN ('cancelled', 'denied', 'rejected', 'completed', 'finished', 'done', 'resolved', 'marked-no-show')`;
+const KNOWN_USER_STATUSES = ['active', 'pending', 'inactive'];
+const KNOWN_CONSULTATION_STATUSES = ['pending', 'under-review', 'scheduled', 'completed', 'denied', 'cancelled', 'marked-no-show'];
+const KNOWN_PASSWORD_RESET_STATUSES = ['pending', 'completed'];
+const KNOWN_INVITE_STATUSES = ['active', 'expired', 'used'];
+
+function padCountRows(rows = [], labels = [], key = 'status') {
+  const map = new Map();
+  for (const row of rows || []) {
+    const label = String(row[key] || row.status || row.type || '').trim();
+    if (!label) continue;
+    map.set(label.toLowerCase(), { ...row, [key]: label, count: Number(row.count || 0) });
+  }
+  for (const label of labels) {
+    const normalized = String(label).toLowerCase();
+    if (!map.has(normalized)) {
+      map.set(normalized, { [key]: label, count: 0 });
+    }
+  }
+  return Array.from(map.values());
+}
 
 async function countDoctorConsultationsForDate(doctorId, consultationDate, excludeConsultationId = null) {
   const conditions = [
@@ -772,14 +829,83 @@ async function markNotificationRead(notificationId) {
   return run(`UPDATE notifications SET read = 1 WHERE id = ?`, [notificationId]);
 }
 
+async function revokePatientQrTokens(patientId) {
+  const revokedAt = new Date().toISOString();
+  return run(
+    `UPDATE patient_qr_tokens SET revoked_at = ? WHERE patient_id = ? AND revoked_at IS NULL`,
+    [revokedAt, patientId]
+  );
+}
+
+async function createPatientQrToken({ patientId, token, expiresAt }) {
+  await revokePatientQrTokens(patientId);
+  const createdAt = new Date().toISOString();
+  const result = await run(
+    `INSERT INTO patient_qr_tokens (token, patient_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
+    [token, patientId, expiresAt, createdAt]
+  );
+  return { id: result.lastID, token, patientId, expiresAt, createdAt, revokedAt: null };
+}
+
+async function getPatientQrToken(token) {
+  const row = await get(
+    `SELECT pqt.*, u.email, u.display_name, u.status, u.email_verified
+     FROM patient_qr_tokens pqt
+     JOIN users u ON u.id = pqt.patient_id
+     WHERE pqt.token = ?`,
+    [token]
+  );
+  return row || null;
+}
+
 async function getPatientProfile(userId) {
   const row = await get(`SELECT p.*, pa.assessment_json FROM patients p LEFT JOIN patient_assessments pa ON p.user_id = pa.user_id WHERE p.user_id = ?`, [userId]);
   return row;
 }
 
+async function hasPatientProfile(userId) {
+  const row = await get(`SELECT user_id FROM patients WHERE user_id = ? LIMIT 1`, [userId]);
+  return Boolean(row);
+}
+
+async function getPatientRegistrationsForReminder(nowIso, reminderCutoffIso) {
+  return getAll(
+    `SELECT * FROM users
+     WHERE role = 'patient'
+       AND status = 'pending'
+       AND COALESCE(email_verified, 0) != 1
+       AND email_verification_expires_at IS NOT NULL
+       AND email_verification_expires_at > ?
+       AND email_verification_expires_at <= ?
+       AND registration_notice_sent_at IS NULL`,
+    [nowIso, reminderCutoffIso]
+  );
+}
+
+async function getExpiredPatientRegistrations(nowIso) {
+  return getAll(
+    `SELECT * FROM users
+     WHERE role = 'patient'
+       AND status = 'pending'
+       AND COALESCE(email_verified, 0) != 1
+       AND email_verification_expires_at IS NOT NULL
+       AND email_verification_expires_at <= ?`,
+    [nowIso]
+  );
+}
+
+const allowedPatientProfileUpdateColumns = new Set(['first_name', 'middle_name', 'last_name', 'email', 'mobile', 'address', 'address2']);
+
 async function updatePatientProfile(userId, updates) {
-  const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-  const values = Object.values(updates);
+  const keys = Object.keys(updates || {});
+  if (!keys.length) throw new Error('No patient profile updates supplied.');
+  for (const key of keys) {
+    if (!allowedPatientProfileUpdateColumns.has(key)) {
+      throw new Error(`Unknown patient profile field: ${key}`);
+    }
+  }
+  const fields = keys.map(key => `${key} = ?`).join(', ');
+  const values = keys.map(key => updates[key]);
   values.push(userId);
   return run(`UPDATE patients SET ${fields} WHERE user_id = ?`, values);
 }
@@ -1143,6 +1269,7 @@ async function deleteUserCascade(userId) {
   await run(`DELETE FROM doctor_availability WHERE doctor_id = ?`, [userId]);
   await run(`DELETE FROM consultations WHERE patient_id = ? OR doctor_id = ?`, [userId, userId]);
   await run(`DELETE FROM patient_record_files WHERE patient_id = ? OR uploaded_by = ?`, [userId, userId]);
+  await run(`DELETE FROM patient_qr_tokens WHERE patient_id = ?`, [userId]);
   await run(`DELETE FROM patient_assessments WHERE user_id = ?`, [userId]);
   await run(`DELETE FROM patients WHERE user_id = ?`, [userId]);
   await run(`DELETE FROM doctor_profiles WHERE user_id = ?`, [userId]);
@@ -1250,7 +1377,7 @@ async function getAdminStats() {
   };
 }
 
-async function getAdminReportData({ search = '', startDate = '', endDate = '' } = {}) {
+async function getAdminReportData({ search = '', startDate = '', endDate = '', includeAllConsultations = false } = {}) {
   const searchValue = String(search || '').trim();
   const startValue = String(startDate || '').trim();
   const endValue = String(endDate || '').trim();
@@ -1280,41 +1407,125 @@ async function getAdminReportData({ search = '', startDate = '', endDate = '' } 
 
   const consultationWhere = consultationConditions.length ? `WHERE ${consultationConditions.join(' AND ')}` : '';
 
+  const userConditions = [];
+  const userParams = [];
+  if (searchValue) {
+    userConditions.push(`(
+      CAST(u.id AS TEXT) ILIKE ?
+      OR COALESCE(u.email, '') ILIKE ?
+      OR COALESCE(u.display_name, '') ILIKE ?
+      OR COALESCE(u.role, '') ILIKE ?
+      OR COALESCE(u.status, '') ILIKE ?
+    )`);
+    userParams.push(`%${searchValue}%`, `%${searchValue}%`, `%${searchValue}%`, `%${searchValue}%`, `%${searchValue}%`);
+  }
+  if (startValue) {
+    userConditions.push(`substr(u.created_at, 1, 10) >= ?`);
+    userParams.push(startValue);
+  }
+  if (endValue) {
+    userConditions.push(`substr(u.created_at, 1, 10) <= ?`);
+    userParams.push(endValue);
+  }
+  const userWhere = userConditions.length ? `WHERE ${userConditions.join(' AND ')}` : '';
+
+  const passwordResetConditions = [];
+  const passwordResetParams = [];
+  if (searchValue) {
+    passwordResetConditions.push(`(
+      CAST(pr.id AS TEXT) ILIKE ?
+      OR COALESCE(pr.email, '') ILIKE ?
+      OR COALESCE(pr.status, '') ILIKE ?
+    )`);
+    passwordResetParams.push(`%${searchValue}%`, `%${searchValue}%`, `%${searchValue}%`);
+  }
+  if (startValue) {
+    passwordResetConditions.push(`substr(pr.requested_at, 1, 10) >= ?`);
+    passwordResetParams.push(startValue);
+  }
+  if (endValue) {
+    passwordResetConditions.push(`substr(pr.requested_at, 1, 10) <= ?`);
+    passwordResetParams.push(endValue);
+  }
+  const passwordResetWhere = passwordResetConditions.length ? `WHERE ${passwordResetConditions.join(' AND ')}` : '';
+
+  const inviteStatusExpression = `CASE WHEN i.used = 1 THEN 'used' WHEN i.expires_at::timestamptz < now() THEN 'expired' ELSE 'active' END`;
+  const inviteConditions = [];
+  const inviteParams = [];
+  if (searchValue) {
+    inviteConditions.push(`(CAST(i.id AS TEXT) ILIKE ? OR ${inviteStatusExpression} ILIKE ?)`);
+    inviteParams.push(`%${searchValue}%`, `%${searchValue}%`);
+  }
+  if (startValue) {
+    inviteConditions.push(`substr(i.created_at, 1, 10) >= ?`);
+    inviteParams.push(startValue);
+  }
+  if (endValue) {
+    inviteConditions.push(`substr(i.created_at, 1, 10) <= ?`);
+    inviteParams.push(endValue);
+  }
+  const inviteWhere = inviteConditions.length ? `WHERE ${inviteConditions.join(' AND ')}` : '';
+
+  const notificationConditions = [];
+  const notificationParams = [];
+  if (searchValue) {
+    notificationConditions.push(`(COALESCE(n.type, '') ILIKE ? OR COALESCE(n.message, '') ILIKE ?)`);
+    notificationParams.push(`%${searchValue}%`, `%${searchValue}%`);
+  }
+  if (startValue) {
+    notificationConditions.push(`substr(n.created_at, 1, 10) >= ?`);
+    notificationParams.push(startValue);
+  }
+  if (endValue) {
+    notificationConditions.push(`substr(n.created_at, 1, 10) <= ?`);
+    notificationParams.push(endValue);
+  }
+  const notificationWhere = notificationConditions.length ? `WHERE ${notificationConditions.join(' AND ')}` : '';
+
   const userRoleCounts = await getAll(`
-    SELECT role, COUNT(*) AS count
-    FROM users
-    GROUP BY role
-    ORDER BY role
-  `);
+    SELECT u.role AS role, COUNT(*) AS count
+    FROM users u
+    ${userWhere}
+    GROUP BY u.role
+    ORDER BY u.role
+  `, userParams);
 
   const userStatusCounts = await getAll(`
-    SELECT status, COUNT(*) AS count
-    FROM users
-    GROUP BY status
-    ORDER BY status
-  `);
+    SELECT u.status AS status, COUNT(*) AS count
+    FROM users u
+    ${userWhere}
+    GROUP BY u.status
+    ORDER BY u.status
+  `, userParams);
 
   const recentUsers = await getAll(`
-    SELECT id, role, email, display_name, status, created_at
-    FROM users
-    ORDER BY created_at DESC
+    SELECT u.id, u.role, u.email, u.display_name, u.status, u.created_at
+    FROM users u
+    ${userWhere}
+    ORDER BY u.created_at DESC
     LIMIT 10
-  `);
+  `, userParams);
 
   const consultationStatusCounts = await getAll(`
-    SELECT status, COUNT(*) AS count
-    FROM consultations
-    GROUP BY status
+    SELECT c.status, COUNT(*) AS count
+    FROM consultations c
+    LEFT JOIN users pu ON c.patient_id = pu.id
+    LEFT JOIN users du ON c.doctor_id = du.id
+    ${consultationWhere}
+    GROUP BY c.status
     ORDER BY count DESC
-  `);
+  `, consultationParams);
 
   const consultationDailyTrend = await getAll(`
-    SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count
-    FROM consultations
-    GROUP BY substr(created_at, 1, 10)
+    SELECT COALESCE(c.consultation_date, substr(c.created_at, 1, 10)) AS day, COUNT(*) AS count
+    FROM consultations c
+    LEFT JOIN users pu ON c.patient_id = pu.id
+    LEFT JOIN users du ON c.doctor_id = du.id
+    ${consultationWhere}
+    GROUP BY COALESCE(c.consultation_date, substr(c.created_at, 1, 10))
     ORDER BY day DESC
-    LIMIT 14
-  `);
+    ${includeAllConsultations ? '' : 'LIMIT 14'}
+  `, consultationParams);
 
   const recentConsultations = await getAll(`
     SELECT
@@ -1334,40 +1545,48 @@ async function getAdminReportData({ search = '', startDate = '', endDate = '' } 
     LEFT JOIN users du ON c.doctor_id = du.id
     ${consultationWhere}
     ORDER BY c.updated_at DESC
-    LIMIT 10
+    ${includeAllConsultations ? '' : 'LIMIT 10'}
   `, consultationParams);
 
   const protectedEmrs = (await get(`SELECT COUNT(*) AS count FROM patient_assessments WHERE assessment_encrypted IS NOT NULL AND assessment_encrypted != ''`)).count || 0;
   const totalEmrs = (await get(`SELECT COUNT(*) AS count FROM patient_assessments`)).count || 0;
   const passwordResetCounts = await getAll(`
-    SELECT status, COUNT(*) AS count
-    FROM password_reset_requests
-    GROUP BY status
-    ORDER BY status
-  `);
+    SELECT pr.status AS status, COUNT(*) AS count
+    FROM password_reset_requests pr
+    ${passwordResetWhere}
+    GROUP BY pr.status
+    ORDER BY pr.status
+  `, passwordResetParams);
   const inviteCounts = await getAll(`
     SELECT
-      CASE
-        WHEN used = 1 THEN 'used'
-        WHEN expires_at::timestamptz < now() THEN 'expired'
-        ELSE 'active'
-      END AS status,
+      ${inviteStatusExpression} AS status,
       COUNT(*) AS count
-    FROM invites
+    FROM invites i
+    ${inviteWhere}
     GROUP BY status
     ORDER BY status
-  `);
+  `, inviteParams);
   const notificationCounts = await getAll(`
-    SELECT type, COUNT(*) AS count
-    FROM notifications
-    GROUP BY type
+    SELECT n.type, COUNT(*) AS count
+    FROM notifications n
+    ${notificationWhere}
+    GROUP BY n.type
     ORDER BY count DESC
     LIMIT 10
-  `);
+  `, notificationParams);
 
-  const totalUsers = (await get(`SELECT COUNT(*) AS count FROM users`)).count || 0;
-  const totalConsultations = (await get(`SELECT COUNT(*) AS count FROM consultations`)).count || 0;
-  const activeConsultations = (await get(`SELECT COUNT(*) AS count FROM consultations WHERE status IN ('pending', 'scheduled', 'under-review')`)).count || 0;
+  const totalUsers = (await get(`SELECT COUNT(*) AS count FROM users u ${userWhere}`, userParams)).count || 0;
+  const consultationTotals = await get(`
+    SELECT
+      COUNT(*) AS total_consultations,
+      SUM(CASE WHEN c.status IN ('pending', 'scheduled', 'under-review') THEN 1 ELSE 0 END) AS active_consultations
+    FROM consultations c
+    LEFT JOIN users pu ON c.patient_id = pu.id
+    LEFT JOIN users du ON c.doctor_id = du.id
+    ${consultationWhere}
+  `, consultationParams);
+  const totalConsultations = Number(consultationTotals?.total_consultations || 0);
+  const activeConsultations = Number(consultationTotals?.active_consultations || 0);
   const totalMessages = (await get(`SELECT COUNT(*) AS count FROM message_board`)).count || 0;
   const unreadMessages = (await get(`SELECT COUNT(*) AS count FROM message_board WHERE is_read = 0`)).count || 0;
 
@@ -1384,19 +1603,19 @@ async function getAdminReportData({ search = '', startDate = '', endDate = '' } 
     },
     users: {
       byRole: userRoleCounts || [],
-      byStatus: userStatusCounts || [],
+      byStatus: padCountRows(userStatusCounts, KNOWN_USER_STATUSES),
       recent: recentUsers || [],
     },
     consultations: {
-      byStatus: consultationStatusCounts || [],
+      byStatus: padCountRows(consultationStatusCounts, KNOWN_CONSULTATION_STATUSES),
       dailyTrend: (consultationDailyTrend || []).reverse(),
       recent: recentConsultations || [],
     },
     security: {
       protectedEmrs,
       totalEmrs,
-      passwordResetRequests: passwordResetCounts || [],
-      invites: inviteCounts || [],
+      passwordResetRequests: padCountRows(passwordResetCounts, KNOWN_PASSWORD_RESET_STATUSES),
+      invites: padCountRows(inviteCounts, KNOWN_INVITE_STATUSES),
       notifications: notificationCounts || [],
     },
   };
@@ -1488,7 +1707,7 @@ async function getDiagnosticReportData(doctorId) {
       totalConsultations: Number(totals?.total_consultations || 0),
       activeConsultations: Number(totals?.active_consultations || 0),
     },
-    consultationStatus: consultationStatus || [],
+    consultationStatus: padCountRows(consultationStatus, KNOWN_CONSULTATION_STATUSES),
     dailyTrend: (dailyTrend || []).reverse(),
     assessments: assessments || [],
   };
@@ -1712,6 +1931,8 @@ module.exports = {
   init,
   createUser,
   getUserByEmail,
+  getUserByGoogleSub,
+  linkUserGoogleSub,
   validateCredentials,
   getUserById,
   createLoginOtp,
@@ -1724,6 +1945,7 @@ module.exports = {
   createInvite,
   getInviteByToken,
   markInviteUsed,
+  revokePublicRegistrationInvites,
   createPatientProfile,
   createPatientAssessment,
   createConsultation,
@@ -1735,7 +1957,13 @@ module.exports = {
   createNotification,
   getNotificationsByUser,
   markNotificationRead,
+  revokePatientQrTokens,
+  createPatientQrToken,
+  getPatientQrToken,
   getPatientProfile,
+  hasPatientProfile,
+  getPatientRegistrationsForReminder,
+  getExpiredPatientRegistrations,
   updatePatientProfile,
   getConsultationsByDoctor,
   getConsultationById,

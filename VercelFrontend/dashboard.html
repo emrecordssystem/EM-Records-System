@@ -251,6 +251,13 @@
       border-left: 4px solid #ffd700;
     }
 
+    .profile-locked,
+    .profile-locked:hover {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     /* Main Wrapper */
     .main-wrapper {
       margin-left: 220px;
@@ -885,19 +892,20 @@
       <div class="sidebar-section">
         <div class="sidebar-section-title">APPOINTMENTS</div>
         <button class="sidebar-nav-item active" data-target="overview">Dashboard</button>
-        <button class="sidebar-nav-item" data-target="consultation">Request Consultation</button>
-        <button class="sidebar-nav-item" data-target="my-consultations">My Consultations</button>
-        <button class="sidebar-nav-item" data-target="availability">Doctor Availability</button>
+        <button class="sidebar-nav-item" data-target="consultation" data-requires-profile="true">Request Consultation</button>
+        <button class="sidebar-nav-item" data-target="my-consultations" data-requires-profile="true">My Consultations</button>
+        <button class="sidebar-nav-item" data-target="availability" data-requires-profile="true">Doctor Availability</button>
       </div>
 
       <div class="sidebar-section">
         <div class="sidebar-section-title">MEDICAL RECORD</div>
-        <button class="sidebar-nav-item" data-target="emr">My Medical Record</button>
-        <button class="sidebar-nav-item" data-target="my-qr">My QR Code</button>
+        <button class="sidebar-nav-item" data-target="emr" data-requires-profile="true">My Medical Record</button>
+        <button class="sidebar-nav-item" data-target="my-qr" data-requires-profile="true">My QR Code</button>
       </div>
 
       <div class="sidebar-section">
         <div class="sidebar-section-title">ACCOUNT</div>
+        <button class="sidebar-nav-item" data-target="profile-completion" data-requires-profile="false">Complete Profile</button>
         <button class="sidebar-nav-item" data-target="profile">👤 Profile Settings</button>
       </div>
     </nav>
@@ -974,9 +982,9 @@
         </div>
 
         <div class="quick-actions">
-          <button class="nav-btn" data-target="consultation">+ Request Consultation</button>
-          <button class="nav-btn" data-target="availability">Check Doctor Schedule</button>
-          <button class="nav-btn" data-target="emr">View Medical Record</button>
+          <button class="nav-btn" data-target="consultation" data-requires-profile="true">+ Request Consultation</button>
+          <button class="nav-btn" data-target="availability" data-requires-profile="true">Check Doctor Schedule</button>
+          <button class="nav-btn" data-target="emr" data-requires-profile="true">View Medical Record</button>
         </div>
 
       </section>
@@ -987,6 +995,38 @@
           <div id="patientQrContent">
             <p class="hint">Loading QR code...</p>
           </div>
+          <p class="hint" id="patientQrExpiresAt"></p>
+          <button type="button" class="primary" id="regeneratePatientQr">Regenerate QR Code</button>
+        </div>
+      </section>
+
+      <section id="profile-completion" class="section" data-requires-profile="false">
+        <div class="card" id="profileCompletionView">
+          <h2>Complete Patient Profile</h2>
+          <p class="hint">Complete this after email verification and clinic approval. These details are saved only after your account is active.</p>
+          <form id="profileCompletionForm" class="form" novalidate>
+            <div class="form-row">
+              <div class="field"><label for="completeFirstName">First Name</label><input type="text" id="completeFirstName" required /></div>
+              <div class="field"><label for="completeMiddleName">Middle Name</label><input type="text" id="completeMiddleName" /></div>
+              <div class="field"><label for="completeLastName">Last Name</label><input type="text" id="completeLastName" required /></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label for="completeDob">Date of Birth</label><input type="date" id="completeDob" required /></div>
+              <div class="field"><label for="completeSex">Sex</label><select id="completeSex" required><option value="">Select</option><option value="female">Female</option><option value="male">Male</option></select></div>
+              <div class="field"><label for="completeCivilStatus">Civil Status</label><select id="completeCivilStatus" required><option value="">Select</option><option value="single">Single</option><option value="married">Married</option><option value="widowed">Widowed</option><option value="divorced">Divorced</option><option value="separated">Separated</option></select></div>
+            </div>
+            <div class="field"><label for="completeAddress">Address 1</label><input type="text" id="completeAddress" required /></div>
+            <div class="field"><label for="completeAddress2">Address 2</label><input type="text" id="completeAddress2" /></div>
+            <div class="form-row">
+              <div class="field"><label for="completeMobile">Mobile Number (optional)</label><input type="tel" id="completeMobile" inputmode="numeric" pattern="[0-9]*" /></div>
+              <div class="field"><label for="completePhilhealth">PhilHealth Number (optional)</label><input type="text" id="completePhilhealth" inputmode="numeric" pattern="[0-9]*" /></div>
+              <div class="field"><label for="completeNationalId">National ID Number (optional)</label><input type="text" id="completeNationalId" inputmode="numeric" pattern="[0-9]*" /></div>
+            </div>
+            <div class="field"><label for="completeSecurityQuestion">Security Question</label><input type="text" id="completeSecurityQuestion" required /></div>
+            <div class="field"><label for="completeSecurityAnswer">Security Answer</label><input type="text" id="completeSecurityAnswer" required /></div>
+            <button type="submit" class="primary">Save Patient Profile</button>
+            <p class="hint" id="profileCompletionHint"></p>
+          </form>
         </div>
       </section>
 
@@ -1015,8 +1055,8 @@
                 <input type="email" id="email" name="email" required />
               </div>
               <div class="field">
-                <label for="mobile">Mobile</label>
-                <input type="tel" id="mobile" name="mobile" required />
+                <label for="mobile">Mobile <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
+                <input type="tel" id="mobile" name="mobile" inputmode="numeric" pattern="[0-9]*" />
               </div>
             </div>
             <div class="field">
@@ -1114,6 +1154,7 @@
       availability: [],
       availabilityMonth: '',
       recordFiles: [],
+      profileReady: false,
     };
     const TIME_SLOT_LABELS = {
       '08:00': '8:00 AM - 9:00 AM',
@@ -1293,6 +1334,73 @@
           break;
       }
     }
+
+    async function loadProfileReadiness() {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/profile?userId=${authUser.id}`);
+        const data = await resp.json().catch(() => ({}));
+        overviewState.profileReady = Boolean(resp.ok && data.success && data.profile);
+      } catch {
+        overviewState.profileReady = false;
+      }
+
+      document.querySelectorAll('[data-requires-profile="true"]').forEach((el) => {
+        el.disabled = !overviewState.profileReady;
+        el.classList.toggle('profile-locked', !overviewState.profileReady);
+      });
+      if (!overviewState.profileReady) {
+        switchSection('profile-completion');
+      }
+      return overviewState.profileReady;
+    }
+
+    async function submitProfileCompletion(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      const hint = document.getElementById('profileCompletionHint');
+      const payload = {
+        userId: authUser.id,
+        username: authUser.email.split('@')[0],
+        firstName: document.getElementById('completeFirstName').value.trim(),
+        middleName: document.getElementById('completeMiddleName').value.trim(),
+        lastName: document.getElementById('completeLastName').value.trim(),
+        mobile: document.getElementById('completeMobile').value.trim(),
+        dateOfBirth: document.getElementById('completeDob').value,
+        sex: document.getElementById('completeSex').value,
+        civilStatus: document.getElementById('completeCivilStatus').value,
+        address: document.getElementById('completeAddress').value.trim(),
+        address2: document.getElementById('completeAddress2').value.trim(),
+        philhealthNumber: document.getElementById('completePhilhealth').value.trim(),
+        idNumber: document.getElementById('completeNationalId').value.trim(),
+        idType: 'patient',
+        securityQuestion: document.getElementById('completeSecurityQuestion').value.trim(),
+        securityAnswer: document.getElementById('completeSecurityAnswer').value.trim(),
+      };
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/patient/profile-completion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Could not complete profile.');
+        hint.textContent = 'Patient profile saved. You can now use consultations, EMR, and QR code features.';
+        hint.style.color = 'var(--success)';
+        await loadProfileReadiness();
+        switchSection('overview');
+      } catch (err) {
+        hint.textContent = err.message;
+        hint.style.color = 'var(--danger)';
+      }
+    }
+
+    document.getElementById('profileCompletionForm')?.addEventListener('submit', submitProfileCompletion);
 
     profileForm.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -1955,21 +2063,38 @@
 
     async function loadMyQr() {
       const container = document.getElementById('patientQrContent');
+      if (!container) return;
+
+      const expiresHint = document.getElementById('patientQrExpiresAt');
+      if (expiresHint) {
+        expiresHint.textContent = '';
+      }
+
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/my-qr?userId=${authUser.id}`);
+        const resp = await fetch(`${API_BASE_URL}/api/my-qr?userId=${authUser.id}&requesterId=${authUser.id}`);
         const data = await resp.json();
         if (!data.success) throw new Error(data.message || 'Could not load QR code.');
 
         container.innerHTML = `
           <div class="data-card" style="text-align: center;">
             <img src="${data.qrDataUrl}" alt="Patient QR code" style="width: min(260px, 100%); height: auto; margin-bottom: 1rem;" />
-            <p class="hint">Show this QR code to your doctor so they can open your medical record.</p>
+            <p class="hint">Show this expiring QR code to authorized clinic staff or your doctor.</p>
           </div>
         `;
+        if (expiresHint) {
+          expiresHint.textContent = data.expiresAt ? `Expires ${new Date(data.expiresAt).toLocaleString()}` : '';
+        }
       } catch (err) {
-        container.innerHTML = `<p style="color: var(--danger);">Error loading QR code: ${err.message}</p>`;
+        if (expiresHint) {
+          expiresHint.textContent = '';
+        }
+        if (container) {
+          container.innerHTML = `<p style="color: var(--danger);">Error loading QR code: ${err.message}</p>`;
+        }
       }
     }
+
+    document.getElementById('regeneratePatientQr')?.addEventListener('click', loadMyQr);
 
     async function loadEMR() {
       try {
@@ -2158,7 +2283,11 @@
 
     async function initializeDashboard() {
       await loadProfile();
-      await loadOverview();
+      if (await loadProfileReadiness()) {
+        await loadOverview();
+      } else {
+        await loadNotifications();
+      }
     }
 
     initializeDashboard();

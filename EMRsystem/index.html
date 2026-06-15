@@ -138,6 +138,7 @@
         <img id="registrationQr" alt="Patient Registration QR code" hidden />
       </div>
       <a id="registrationLink" class="qr-link" href="register.html">Open Patient Registration</a>
+      <p id="qrExpiresAt" class="qr-status"></p>
     </section>
   </main>
 
@@ -146,10 +147,11 @@
       return new URL('register.html', window.location.href).href;
     }
 
-    async function loadRegistrationQr() {
+    async function loadRegistrationQr({ regenerate = false } = {}) {
       const qrImage = document.getElementById('registrationQr');
       const qrStatus = document.getElementById('qrStatus');
       const registrationLink = document.getElementById('registrationLink');
+      const qrExpiresAt = document.getElementById('qrExpiresAt');
       registrationLink.href = getRegistrationUrl();
 
       try {
@@ -160,8 +162,18 @@
         qrImage.src = data.qrDataUrl;
         qrImage.hidden = false;
         qrStatus.hidden = true;
+        if (qrExpiresAt) {
+          qrExpiresAt.textContent = data.expiresAt ? `Expires ${new Date(data.expiresAt).toLocaleString()}` : '';
+        }
+        registrationLink.href = data.registrationUrl;
       } catch (err) {
+        qrStatus.hidden = false;
         qrStatus.textContent = 'QR unavailable. Use the registration link below.';
+        qrImage.hidden = true;
+        qrImage.removeAttribute('src');
+        if (qrExpiresAt) {
+          qrExpiresAt.textContent = '';
+        }
         console.error('QR load error', err);
       }
     }

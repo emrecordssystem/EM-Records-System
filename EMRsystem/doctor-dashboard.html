@@ -430,6 +430,17 @@
       font-weight: 500;
     }
 
+    .data-row .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: #edf2ff;
+      color: #004a99;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-left: 0.4rem;
+    }
+
     /* Status Badge */
     .status-badge {
       display: inline-block;
@@ -931,18 +942,6 @@
                   <option value="denied">Denied</option>
                 </select>
               </div>
-              <div class="field">
-                <label for="consultationDate">Consultation Date</label>
-                <input type="date" id="consultationDate" name="consultationDate" />
-              </div>
-              <div class="field">
-                <label for="consultationTimeStart">Consultation Time - Start</label>
-                <input type="time" id="consultationTimeStart" name="consultationTimeStart" />
-              </div>
-              <div class="field">
-                <label for="consultationTimeEnd">Consultation Time - End</label>
-                <input type="time" id="consultationTimeEnd" name="consultationTimeEnd" />
-              </div>
             </div>
             <div class="field">
               <label for="doctorNotes">Doctor Notes & Recommendations</label>
@@ -1064,7 +1063,7 @@
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end;">
             <div class="field" style="flex: 1; min-width: 220px; margin: 0;">
               <label for="patientQrInput">QR Code Text</label>
-              <input type="text" id="patientQrInput" placeholder="EMR-Patient:123" />
+              <input type="text" id="patientQrInput" placeholder="Paste patient QR URL or token" />
             </div>
             <button type="button" id="openQrPatientBtn" class="primary" style="width: auto;">Open Record</button>
             <button type="button" id="startQrScanBtn" class="primary secondary-action" style="width: auto;">Use Camera</button>
@@ -1463,7 +1462,10 @@
 
       const html = filtered.length === 0 ?
         '<p style="color: var(--muted);">No consultations available.</p>' :
-        filtered.map(c => `
+        filtered.map((item) => {
+          const sourceLabel = item.consultation_source === 'walk-in' ? 'Walk-in' : 'Online';
+          const c = item;
+          return `
           <div class="data-card" onclick="selectConsultation(${c.id})">
             <div class="data-row">
               <div class="data-label">Patient</div>
@@ -1471,7 +1473,7 @@
             </div>
             <div class="data-row">
               <div class="data-label">Status</div>
-              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span><span class="badge">${sourceLabel}</span></div>
             </div>
             ${Number(c.is_late) ? `<div class="data-row">
               <div class="data-label">Alert</div>
@@ -1490,7 +1492,6 @@
               <div class="data-value" style="font-size: 0.9rem;">${new Date(c.created_at).toLocaleString()}</div>
             </div>
             ${c.status === 'pending' ? `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
-              <button class="primary" style="background:#1e7e34; padding:0.45rem 0.75rem;" onclick="event.stopPropagation(); quickUpdateConsultation(${c.id}, 'scheduled')">Approve</button>
               <button class="primary" style="background:#c92a2a; padding:0.45rem 0.75rem;" onclick="event.stopPropagation(); quickUpdateConsultation(${c.id}, 'denied')">Reject</button>
             </div>` : ''}
             ${canMarkNoShow(c) ? `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
@@ -1503,7 +1504,8 @@
               <button class="primary" type="submit" style="padding:0.55rem 0.75rem;">Set Schedule</button>
             </form>
           </div>
-        `).join('');
+        `;
+        }).join('');
 
       listEl.innerHTML = html;
     }
@@ -1517,6 +1519,7 @@
         if (!data.success) throw new Error(data.message);
 
         const c = data.consultation;
+        const sourceLabel = c.consultation_source === 'walk-in' ? 'Walk-in' : 'Online';
         const assessment = c.assessment || {};
         const recordFiles = await loadPatientRecordFiles(c.patient_id);
 
@@ -1627,7 +1630,7 @@
             </div>
             <div class="data-row">
               <div class="data-label">Status</div>
-              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span></div>
+              <div><span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span><span class="badge">${sourceLabel}</span></div>
             </div>
             ${c.consultation_date ? `<div class="data-row">
               <div class="data-label">Scheduled</div>
@@ -1654,9 +1657,6 @@
         `;
 
         document.getElementById('updateStatus').value = c.status || 'pending';
-        document.getElementById('consultationDate').value = c.consultation_date || '';
-        document.getElementById('consultationTimeStart').value = c.consultation_time || '';
-        document.getElementById('consultationTimeEnd').value = c.consultation_time_end || '';
         document.getElementById('doctorNotes').value = c.notes || '';
         document.getElementById('diagnosticResult').value = c.diagnostic_result || '';
         document.getElementById('prescription').value = c.prescription || '';
@@ -1682,9 +1682,6 @@
 
       const updates = {
         status: statusOverride || document.getElementById('updateStatus').value,
-        consultationDate: document.getElementById('consultationDate').value,
-        consultationTime: document.getElementById('consultationTimeStart').value,
-        consultationTimeEnd: document.getElementById('consultationTimeEnd').value,
         notes: document.getElementById('doctorNotes').value,
         diagnosticResult: document.getElementById('diagnosticResult').value,
         prescription: document.getElementById('prescription').value,
@@ -1708,9 +1705,6 @@
           body: JSON.stringify({
             userId: authUser.id,
             status,
-            consultationDate: consultation?.consultation_date || '',
-            consultationTime: consultation?.consultation_time || '',
-            consultationTimeEnd: consultation?.consultation_time_end || '',
           }),
         });
         const data = await resp.json();
@@ -2160,7 +2154,7 @@
           <div class="report-head">
             <div>
               <h3>Consultation Analytics</h3>
-              <p style="margin:0; color:#34495e;">Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+              <p style="margin:0; color:#34495e;">Generated ${new Date(report.generatedAt).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
             </div>
             <button type="button" class="primary" onclick="window.print()">Download PDF</button>
           </div>
@@ -2275,14 +2269,48 @@
       container.innerHTML = html;
     }
 
-    function getPatientIdFromQrText(value) {
+    function getPatientQrTokenFromText(value) {
       const text = String(value || '').trim();
-      const match = text.match(/^EMR-Patient:(\d+)$/i) || text.match(/^(\d+)$/);
-      return match ? Number(match[1]) : null;
+      if (!text) return null;
+
+      try {
+        const url = new URL(text, window.location.href);
+        const match = url.pathname.match(/\/api\/patient-qr\/([^/]+)$/i);
+        if (match) return decodeURIComponent(match[1]);
+      } catch (err) {
+        // Non-URL input may still be a raw token pasted from the QR payload.
+      }
+
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : null;
+    }
+
+    async function getPatientIdFromQrText(value) {
+      const token = getPatientQrTokenFromText(value);
+      if (!token) return null;
+
+      const resp = await fetch(`${API_BASE_URL}/api/patient-qr/${encodeURIComponent(token)}?requesterId=${encodeURIComponent(authUser.id)}`);
+      const data = await resp.json();
+      if (!resp.ok || !data.success) {
+        throw new Error(data.message || 'Patient QR code is invalid or expired.');
+      }
+
+      const patientUserId = Number(data.patientId);
+      return patientUserId || null;
     }
 
     async function openPatientFromQrText(value) {
-      const patientUserId = getPatientIdFromQrText(value);
+      qrScanHint.textContent = 'Validating patient QR code...';
+      qrScanHint.style.color = 'var(--muted)';
+
+      let patientUserId = null;
+      try {
+        patientUserId = await getPatientIdFromQrText(value);
+      } catch (err) {
+        qrScanHint.textContent = err.message;
+        qrScanHint.style.color = 'var(--danger)';
+        return;
+      }
+
       if (!patientUserId) {
         qrScanHint.textContent = 'Invalid patient QR code.';
         qrScanHint.style.color = 'var(--danger)';

@@ -1756,7 +1756,7 @@
             <form id="adminAddUserForm">
               <div class="filter-group" style="box-shadow: none; padding: 0; margin-bottom: 1rem;">
                 <div class="filter-field">
-                  <label>Role</label>
+                  <label>Role <span class="required-marker">*</span></label>
                   <select id="addUserRole" required>
                     <option value="staff">Staff</option>
                     <option value="doctor">Doctor</option>
@@ -1765,30 +1765,39 @@
                   </select>
                 </div>
                 <div class="filter-field">
-                  <label>Email</label>
+                  <label>Email <span class="required-marker">*</span></label>
                   <input id="addUserEmail" type="email" placeholder="user@example.com" required />
                 </div>
                 <div class="filter-field">
-                  <label>Password</label>
-                  <input id="addUserPassword" type="password" placeholder="Temporary password" required minlength="6" data-password-toggle />
+                  <label>Password <span class="required-marker">*</span></label>
+                  <input id="addUserPassword" type="password" placeholder="Temporary password" required minlength="8" data-password-toggle />
+                </div>
+                <div class="password-rules" aria-live="polite">
+                  <strong>Password restrictions:</strong>
+                  <ul>
+                    <li>At least 8 characters</li>
+                    <li>At least one uppercase and one lowercase letter</li>
+                    <li>At least one number</li>
+                    <li>At least one special character</li>
+                  </ul>
                 </div>
                 <div class="filter-field">
-                  <label>Display Name</label>
+                  <label>Display Name <span class="required-marker">*</span></label>
                   <input id="addUserDisplayName" type="text" placeholder="Full name" required />
                 </div>
                 <div class="filter-field role-extra" data-role-extra="doctor" style="display:none;">
-                  <label>License Number</label>
+                  <label>License Number <span class="required-marker">*</span></label>
                   <input id="addDoctorLicense" type="text" placeholder="PRC license number" />
                 </div>
                 <div class="filter-field role-extra" data-role-extra="staff">
-                  <label>Staff Position</label>
+                  <label>Staff Position <span class="required-marker">*</span></label>
                   <input id="addStaffPosition" type="text" placeholder="Nurse, receptionist, etc." />
                 </div>
               </div>
 
               <div id="addPatientFields" class="filter-group" style="display:none; box-shadow: none; padding: 0; margin-bottom: 1rem;">
                 <div class="filter-field">
-                  <label>First Name</label>
+                  <label>First Name <span class="required-marker">*</span></label>
                   <input id="addPatientFirstName" type="text" />
                 </div>
                 <div class="filter-field">
@@ -1796,15 +1805,15 @@
                   <input id="addPatientMiddleName" type="text" />
                 </div>
                 <div class="filter-field">
-                  <label>Last Name</label>
+                  <label>Last Name <span class="required-marker">*</span></label>
                   <input id="addPatientLastName" type="text" />
                 </div>
                 <div class="filter-field">
-                  <label>Mobile</label>
+                  <label>Mobile Number (optional)</label>
                   <input id="addPatientMobile" type="text" inputmode="numeric" pattern="[0-9]*" />
                 </div>
                 <div class="filter-field">
-                  <label>Date of Birth</label>
+                  <label>Date of Birth <span class="required-marker">*</span></label>
                   <input id="addPatientDob" type="date" />
                 </div>
                 <div class="filter-field">
@@ -1812,7 +1821,7 @@
                   <input id="addPatientAge" type="number" min="0" disabled />
                 </div>
                 <div class="filter-field">
-                  <label>Sex</label>
+                  <label>Sex <span class="required-marker">*</span></label>
                   <select id="addPatientSex">
                     <option value="">Select sex</option>
                     <option value="Female">Female</option>
@@ -1820,11 +1829,11 @@
                   </select>
                 </div>
                 <div class="filter-field">
-                  <label>Civil Status</label>
+                  <label>Civil Status <span class="required-marker">*</span></label>
                   <input id="addPatientCivilStatus" type="text" />
                 </div>
                 <div class="filter-field">
-                  <label>Address</label>
+                  <label>Address <span class="required-marker">*</span></label>
                   <input id="addPatientAddress" type="text" />
                 </div>
               </div>
@@ -1887,9 +1896,12 @@
               <select id="consultationStatusFilter">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
+                <option value="under-review">Under Review</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="completed">Completed</option>
                 <option value="denied">Denied</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="marked-no-show">Marked No-show</option>
               </select>
             </div>
             <div class="filter-field">
@@ -2569,9 +2581,7 @@
     const addPatientRequiredFields = [
       'addPatientFirstName',
       'addPatientLastName',
-      'addPatientMobile',
       'addPatientDob',
-      'addPatientAge',
       'addPatientSex',
       'addPatientCivilStatus',
       'addPatientAddress',
@@ -2613,6 +2623,15 @@
 
     function sanitizeNumericInput(value) {
       return String(value || '').replace(/\D/g, '');
+    }
+
+    function getPasswordValidationMessage(password) {
+      if (!password || password.length < 8) return 'Password must be at least 8 characters.';
+      if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.';
+      if (!/[a-z]/.test(password)) return 'Password must include at least one lowercase letter.';
+      if (!/\d/.test(password)) return 'Password must include at least one number.';
+      if (!/[^A-Za-z0-9]/.test(password)) return 'Password must include at least one special character.';
+      return '';
     }
 
     function bindInputSanitizer(id, sanitizer) {
@@ -2679,6 +2698,12 @@
         password: document.getElementById('addUserPassword').value,
         displayName: getInputValue('addUserDisplayName'),
       };
+
+      const passwordMessage = getPasswordValidationMessage(payload.password);
+      if (passwordMessage) {
+        alert(passwordMessage);
+        return;
+      }
 
       if (role === 'doctor') {
         payload.license = getInputValue('addDoctorLicense');
@@ -3125,6 +3150,20 @@
       return `${datePart} ${parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     }
 
+    function formatReportFullDateTime(value) {
+      if (!value) return '—';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return value;
+      return parsed.toLocaleString([], {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+
     function reportCountMap(rows, labelKey = 'status') {
       if (!rows?.length) return '<p class="report-empty">No data available.</p>';
 
@@ -3471,7 +3510,7 @@
             { key: 'consultation_source', label: 'Type', format: value => value === 'walk-in' ? 'Walk-in' : 'Online scheduled' },
             { key: 'status', label: 'Current Status' },
             { key: 'consultation_date', label: 'Schedule', format: (value, row) => formatReportDateTime(value, row.consultation_time) },
-            { key: 'updated_at', label: 'Last Updated', format: value => value ? new Date(value).toLocaleString([], { hour12: true }) : '—' },
+            { key: 'updated_at', label: 'Last Updated', format: value => formatReportFullDateTime(value) },
             { key: 'signature', label: 'Signature', format: () => '________________' },
           ]))}
         `;
@@ -3486,14 +3525,14 @@
           <div class="report-section-grid">
             ${reportPanel('Consultations by Status', reportCountMap(data.consultations?.byStatus))}
             ${reportPanel('Daily Consultation Trend', reportCountMap(data.consultations?.dailyTrend, 'day'))}
-            ${reportPanel('Recent Consultations', reportTable(data.consultations?.recent, [
+            ${reportPanel('All Matching Transactions', reportTable(data.consultations?.recent, [
               { key: 'id', label: 'Transaction ID', format: value => `TRX-${String(value).padStart(6, '0')}` },
               { key: 'patient_name', label: 'Patient' },
               { key: 'doctor_name', label: 'Doctor' },
               { key: 'consultation_source', label: 'Type', format: value => value === 'walk-in' ? 'Walk-in' : 'Online scheduled' },
               { key: 'status', label: 'Current Status' },
               { key: 'consultation_date', label: 'Schedule', format: (value, row) => formatReportDateTime(value, row.consultation_time) },
-              { key: 'updated_at', label: 'Updated', format: value => value ? new Date(value).toLocaleString([], { hour12: true }) : '—' },
+              { key: 'updated_at', label: 'Updated', format: value => formatReportFullDateTime(value) },
               { key: 'signature', label: 'Signature', format: () => '________________' },
             ]))}
           </div>
@@ -3528,7 +3567,7 @@
               { key: 'email', label: 'Email' },
               { key: 'role', label: 'Role' },
               { key: 'status', label: 'Status' },
-              { key: 'created_at', label: 'Created', format: value => value ? new Date(value).toLocaleString() : '—' },
+              { key: 'created_at', label: 'Created', format: value => formatReportFullDateTime(value) },
             ]))}
           </div>
         `;
@@ -3557,7 +3596,7 @@
         <div class="report-output-header">
           <div>
             <h3>${reportValue(report.title)}</h3>
-            <p>Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+            <p>Generated ${formatReportFullDateTime(report.generatedAt)}</p>
           </div>
           <div class="report-actions">
             <button class="btn-export" onclick="downloadCurrentReportPdf()">View / Print Report</button>
@@ -3901,7 +3940,7 @@
               <div class="report-output-header">
                 <div>
                   <h3>${reportValue(report.title)}</h3>
-                  <p>Generated ${new Date(report.generatedAt).toLocaleString()}</p>
+                  <p>Generated ${formatReportFullDateTime(report.generatedAt)}</p>
                 </div>
                 <div>
                   <p>${reportValue(getReportFileName(report))}</p>
